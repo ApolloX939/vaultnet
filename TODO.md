@@ -7,9 +7,16 @@
 - [ ] Commit by section. Do NOT push without asking: the owner reviews commits first (remote is established)
 - [ ] Set up the git repo and remote
 
+## Game Support
+- [ ] Minetest Game (first target; recipes in a per-game file, loaded only if `default` is present)
+- [ ] Mineclonia (later)
+- [ ] VoxeLibre (later)
+- [ ] Hades Revisited (later)
+- [ ] Skyblock Zero (later)
+
 ## Modpack Layout (sub mods)
 - [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
-- [ ] `vaultnet_cables`: cables, active cables, toggle cable
+- [x] `vaultnet_cables`: cables, active cables, toggle cable
 - [ ] `vaultnet_drives`: drives and the drive bay
 - [ ] `vaultnet_core`: central node, access control formspec
 - [ ] `vaultnet_io`: Inserter and Exporter
