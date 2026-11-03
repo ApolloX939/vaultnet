@@ -17,7 +17,7 @@
 ## Modpack Layout (sub mods)
 - [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
-- [ ] `vaultnet_drives`: drives and the drive bay
+- [ ] `vaultnet_drives`: drives and the drive bay (drives done, bay TODO)
 - [ ] `vaultnet_core`: central node, access control formspec
 - [ ] `vaultnet_io`: Inserter and Exporter
 - [ ] `vaultnet_autocrafter`: autocrafter (opt-in)
@@ -28,10 +28,10 @@
 - [ ] Each sub mod has its own `mod.conf`, `settingtypes.txt`, and textures/models folders
 
 ## Drives
-- [ ] Storage of items with full metadata preserved
-- [ ] "State" light showing fullness, going from green to red (multiple tiers or textures/overlay)
-- [ ] Capacity tiers (optional)
-- [ ] Drive item keeps its contents when carried (item metadata)
+- [x] Storage of items with full metadata preserved
+- [x] "State" light showing fullness, going from green to red (multiple tiers or textures/overlay)
+- [x] Capacity tiers (optional)
+- [x] Drive item keeps its contents when carried (item metadata)
 
 ## Drive Bay
 - [ ] Holds a fixed number of drives

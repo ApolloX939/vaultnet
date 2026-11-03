@@ -1,0 +1,11 @@
+# Item capacity of each drive tier.
+vaultnet_drives_capacity_1 (Tier 1 capacity) int 1024 1 1000000000
+vaultnet_drives_capacity_2 (Tier 2 capacity) int 4096 1 1000000000
+vaultnet_drives_capacity_3 (Tier 3 capacity) int 16384 1 1000000000
+vaultnet_drives_capacity_4 (Tier 4 capacity) int 65536 1 1000000000
+
+# Distinct item kinds (different name/wear/metadata) a drive can hold; 0 = unlimited.
+vaultnet_drives_max_types_1 (Tier 1 max kinds) int 8 0 100000
+vaultnet_drives_max_types_2 (Tier 2 max kinds) int 16 0 100000
+vaultnet_drives_max_types_3 (Tier 3 max kinds) int 32 0 100000
+vaultnet_drives_max_types_4 (Tier 4 max kinds) int 0 0 100000

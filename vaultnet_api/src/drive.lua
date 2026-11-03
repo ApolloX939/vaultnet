@@ -22,6 +22,11 @@ function D.is_drive(stack)
 	return drive_def(stack) ~= nil
 end
 
+function D.state_of(def, data)
+	local fullness = def.capacity > 0 and data.used / def.capacity or 1
+	return math.min(D.STATES, math.max(1, math.ceil(fullness * D.STATES)))
+end
+
 -- data = {items = {[key] = count}, used = n, types = n}
 local function load(stack)
 	local s = stack:get_meta():get_string(KEY)
@@ -38,6 +43,13 @@ local function save(stack, data)
 	meta:set_string(KEY, core.serialize(data))
 	meta:set_string("description", (idef.description or stack:get_name()) ..
 		"\n" .. data.used .. " / " .. def.capacity .. " items")
+	-- Optional per-state look: def.state_image(state) -> texture string.
+	if def.state_image then
+		local state = D.state_of(def, data)
+		local img = def.state_image(state)
+		meta:set_string("inventory_image", img)
+		meta:set_string("wield_image", img)
+	end
 end
 
 function D.info(stack)
