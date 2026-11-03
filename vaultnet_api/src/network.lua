@@ -176,20 +176,24 @@ function Network:is_active()
 	return self:status() == "ok"
 end
 
--- Swap every device to its active/inactive variant (animated textures).
+-- Swap every device to the look matching `status` (a Network:status() value).
+-- Per device: def.variants[status] if present (e.g. the red conflict core),
+-- else active_variant when "ok", else inactive_variant.
 -- Does not change topology, so no cache invalidation is needed.
-function Network:apply_active(state)
+function Network:apply_status(status)
 	for _, pos in pairs(self.nodes) do
 		local node = core.get_node_or_nil(pos)
 		local def = node and vaultnet.get_def(node.name)
 		if def then
-			-- (not `state and a or b`: that falls through to b when a is nil,
+			-- (not `cond and a or b`: that falls through to b when a is nil,
 			-- which flipped already-active nodes back to inactive)
-			local target
-			if state then
-				target = def.active_variant
-			else
-				target = def.inactive_variant
+			local target = def.variants and def.variants[status]
+			if not target then
+				if status == "ok" then
+					target = def.active_variant
+				else
+					target = def.inactive_variant
+				end
 			end
 			if target and target ~= node.name then
 				node.name = target
@@ -197,4 +201,9 @@ function Network:apply_active(state)
 			end
 		end
 	end
+end
+
+-- Swap every device to its active/inactive variant (animated textures).
+function Network:apply_active(state)
+	self:apply_status(state and "ok" or "inactive")
 end

@@ -1,68 +1,237 @@
--- PLACEHOLDER core: just enough to see cables switch between their inactive and
--- animated active looks. The real core (access formspec, storage hub) replaces
--- this file's contents later; the node names are kept stable on purpose.
+local modpath = core.get_modpath(core.get_current_modname())
+local A = vaultnet.access
 
-local function animated(texture)
+local IDLE, ACTIVE, CONFLICT =
+	"vaultnet_core:core", "vaultnet_core:core_active", "vaultnet_core:core_conflict"
+
+local FULL = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}}
+
+local STATUS_TEXT = {
+	ok = "Online",
+	no_core = "No core",
+	multiple_cores = "CONFLICT: more than one core on this network",
+	unpowered = "No power",
+}
+
+local function animated(texture, length)
 	return {
 		name = texture,
-		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
+		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = length},
 	}
 end
 
-local groups = {cracky = 2, vaultnet_device = 1}
+local show_formspec -- defined below
 
-core.register_node("vaultnet_core:core", {
-	description = "VaultNet Core (placeholder)",
-	tiles = {"vaultnet_core_dummy.png"},
-	groups = groups,
-	vaultnet = {
-		role = "core",
-		active_variant = "vaultnet_core:core_active",
-	},
-	after_place_node = function(pos, placer)
-		if placer then vaultnet.access.init(pos, placer:get_player_name()) end
-	end,
+-- Nodes -----------------------------------------------------------------------
+
+local function register(name, desc, glow, extra)
+	local def = {
+		description = desc,
+		drawtype = "mesh",
+		mesh = "vaultnet_core_core.obj",
+		tiles = {"vaultnet_core_frame.png", glow},
+		paramtype = "light",
+		selection_box = FULL,
+		collision_box = FULL,
+		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
+		groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1},
+		vaultnet = {
+			role = "core",
+			active_variant = ACTIVE,
+			inactive_variant = IDLE,
+			-- two cores on one network: both turn red
+			variants = {multiple_cores = CONFLICT},
+		},
+
+		after_place_node = function(pos, placer)
+			local pname = placer and placer:get_player_name() or ""
+			A.init(pos, pname)
+			local net = vaultnet.get_network(pos)
+			if net and #net.cores > 1 and pname ~= "" then
+				core.chat_send_player(pname, "[VaultNet] This network already has a core. " ..
+					"Both cores show a conflict until one of them is removed.")
+			end
+		end,
+		can_dig = function(pos, player)
+			return player ~= nil and A.can(pos, player:get_player_name(), "admin")
+		end,
+		on_rightclick = function(pos, _, clicker)
+			if clicker and clicker:is_player() then
+				show_formspec(pos, clicker:get_player_name())
+			end
+		end,
+	}
+	for k, v in pairs(extra or {}) do def[k] = v end
+	core.register_node(name, def)
+end
+
+register(IDLE, "VaultNet Core", "vaultnet_core_glow_idle.png")
+
+register(ACTIVE, "VaultNet Core (active)",
+	animated("vaultnet_core_glow_active.png", 3.2), {
+	drop = IDLE,
+	light_source = 8,
+	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},
 })
 
-core.register_node("vaultnet_core:core_active", {
-	description = "VaultNet Core (placeholder, active)",
-	tiles = {animated("vaultnet_core_dummy_active.png")},
-	light_source = 6,
-	drop = "vaultnet_core:core",
-	groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = 1},
-	vaultnet = {
-		role = "core",
-		inactive_variant = "vaultnet_core:core",
-	},
+register(CONFLICT, "VaultNet Core (conflict)",
+	animated("vaultnet_core_glow_conflict.png", 0.8), {
+	drop = IDLE,
+	light_source = 8,
+	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},
 })
 
--- Placeholder visual driver: every second, each network in a loaded area is set
--- active iff it has exactly one core (and power, if required). One update per
--- network per second thanks to the stamp on the cached network object.
+-- Status upkeep ---------------------------------------------------------------
+-- Topology changes already refresh the looks (vaultnet_api visuals); this also
+-- catches state that is not a topology change (power) and keeps the infotext
+-- current. One update per network per game second.
+
 core.register_abm({
-	label = "VaultNet placeholder active-state update",
-	nodenames = {"group:vaultnet_device"},
-	interval = 1,
+	label = "VaultNet core status",
+	nodenames = {"group:vaultnet_core"},
+	interval = 2,
 	chance = 1,
 	action = function(pos)
 		local net = vaultnet.get_network(pos)
 		if not net then return end
-		local now = core.get_gametime()
-		if net.dummy_stamp == now then return end
-		net.dummy_stamp = now
 		local status = net:status()
-		if net.dummy_last ~= status then
-			net.dummy_last = status
-			core.log("action", ("[vaultnet_core placeholder] net #%d: %d nodes, %d core(s), status=%s%s"):format(
-				net.id, net.count, #net.cores, status, net.incomplete and " (incomplete)" or ""))
+		local now = core.get_gametime()
+		if net.status_stamp ~= now then
+			net.status_stamp = now
+			net:apply_status(status)
 		end
-		net:apply_active(status == "ok")
+		local meta = core.get_meta(pos)
+		local text = ("VaultNet Core (%s)\n%s"):format(A.get_owner(pos), STATUS_TEXT[status] or status)
+		if meta:get_string("infotext") ~= text then meta:set_string("infotext", text) end
 	end,
 })
+
+-- Access formspec ---------------------------------------------------------------
+
+local FORMNAME = "vaultnet_core:access"
+local contexts = {} -- player -> {pos, list}
+local ROW_H, VIEW_H = 0.7, 3.6
+
+local function build(pos, name)
+	local net = vaultnet.get_network(pos)
+	local status = net and net:status() or "no_core"
+	local used, cap = 0, 0
+	if net and status == "ok" then used, cap = net:capacity() end
+	local can_admin = A.can(pos, name, "admin")
+	local list = A.list(pos)
+	contexts[name] = {pos = pos, list = list}
+
+	local esc = core.formspec_escape
+	local fs = {
+		"formspec_version[4]size[10,9.2]",
+		"label[0.4,0.5;VaultNet Core]",
+		("label[0.4,1.1;Owner: %s]"):format(esc(A.get_owner(pos))),
+		("label[0.4,1.6;Status: %s]"):format(esc(STATUS_TEXT[status] or status)),
+		("label[0.4,2.1;Network: %d devices, storage %d / %d items]"):format(
+			net and net.count or 0, used, cap),
+	}
+
+	if can_admin then
+		fs[#fs + 1] = "label[0.4,2.9;Player access]"
+		fs[#fs + 1] = "label[0.4,3.35;Player]label[4.4,3.35;Put]label[5.5,3.35;Pull]label[6.7,3.35;Admin]"
+		local content_h = #list * ROW_H
+		fs[#fs + 1] = ("scroll_container[0.4,3.6;8.9,%f;sb;vertical;0.1]"):format(VIEW_H)
+		for i, e in ipairs(list) do
+			local y = (i - 1) * ROW_H
+			fs[#fs + 1] = ("label[0,%f;%s]"):format(y + 0.35, esc(e.name))
+			for k, x in pairs({put = 4.0, pull = 5.1, admin = 6.3}) do
+				fs[#fs + 1] = ("checkbox[%f,%f;%s_%d;;%s]"):format(x, y + 0.35, k, i,
+					e[k] and "true" or "false")
+			end
+			fs[#fs + 1] = ("button[7.2,%f;1.5,0.6;rm_%d;Remove]"):format(y, i)
+		end
+		fs[#fs + 1] = "scroll_container_end[]"
+		local max = math.max(0, math.ceil((content_h - VIEW_H) * 10))
+		fs[#fs + 1] = ("scrollbaroptions[min=0;max=%d;smallstep=7;largestep=36]"):format(max)
+		fs[#fs + 1] = ("scrollbar[9.4,3.6;0.3,%f;vertical;sb;0]"):format(VIEW_H)
+		fs[#fs + 1] = "field[0.4,7.9;5,0.7;newname;Add player;]"
+		fs[#fs + 1] = "field_close_on_enter[newname;false]"
+		fs[#fs + 1] = "button[5.6,7.9;2,0.7;add;Add]"
+	else
+		local perms = {}
+		for _, k in ipairs(A.PERMS) do
+			if A.can(pos, name, k) then perms[#perms + 1] = k end
+		end
+		fs[#fs + 1] = ("label[0.4,3.1;Your access: %s]"):format(
+			#perms > 0 and table.concat(perms, ", ") or "none")
+	end
+	return table.concat(fs)
+end
+
+function show_formspec(pos, name)
+	core.show_formspec(name, FORMNAME, build(pos, name))
+end
+
+local is_core = {[IDLE] = true, [ACTIVE] = true, [CONFLICT] = true}
+
+core.register_on_player_receive_fields(function(player, formname, fields)
+	if formname ~= FORMNAME then return end
+	local name = player:get_player_name()
+	local ctx = contexts[name]
+	if fields.quit then
+		contexts[name] = nil
+		return true
+	end
+	if not ctx then return true end
+	local pos = ctx.pos
+	local node = core.get_node_or_nil(pos)
+	if not node or not is_core[node.name] then return true end
+	local function say(msg) core.chat_send_player(name, "[VaultNet] " .. msg) end
+
+	local changed = false
+	for i, e in ipairs(ctx.list) do
+		if fields["rm_" .. i] then
+			changed = A.remove(pos, name, e.name) or changed
+		else
+			local perms, edited = {put = e.put, pull = e.pull, admin = e.admin}, false
+			for _, k in ipairs(A.PERMS) do
+				local v = fields[k .. "_" .. i]
+				if v ~= nil and (v == "true") ~= (e[k] == true) then
+					perms[k] = (v == "true")
+					edited = true
+				end
+			end
+			if edited then changed = A.set(pos, name, e.name, perms) or changed end
+		end
+	end
+
+	if fields.add or fields.key_enter_field == "newname" then
+		local target = (fields.newname or ""):match("^%s*(.-)%s*$")
+		if target ~= "" then
+			if not core.player_exists(target) then
+				say("Unknown player: " .. target)
+			elseif target == A.get_owner(pos) then
+				say(target .. " owns this core and already has full access.")
+			else
+				local existing = false
+				for _, e in ipairs(ctx.list) do
+					if e.name == target then existing = true end
+				end
+				if not existing then
+					changed = A.set(pos, name, target, {put = true, pull = true}) or changed
+				end
+			end
+		end
+	end
+
+	if changed or fields.add then show_formspec(pos, name) end
+	return true
+end)
+
+core.register_on_leaveplayer(function(player) contexts[player:get_player_name()] = nil end)
 
 -- PLACEHOLDER power: with vaultnet_require_power on and no vaultnet_power mod
 -- yet, nothing would ever count as powered. Treat everything as powered so the
 -- toggle cable can be tested. Remove when vaultnet_power exists.
 if vaultnet.require_power then
 	vaultnet.register_power_handler(function() return true end)
+end
+
+if core.get_modpath("default") then
+	dofile(modpath .. "/recipes_mtg.lua")
 end

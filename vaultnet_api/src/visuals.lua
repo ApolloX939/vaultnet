@@ -15,7 +15,7 @@ local function flush()
 		local net = vaultnet.get_network(pos)
 		if net and not done[net] then
 			done[net] = true
-			net:apply_active(net:status() == "ok")
+			net:apply_status(net:status())
 		end
 	end
 end

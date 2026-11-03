@@ -18,7 +18,7 @@
 - [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
 - [x] `vaultnet_drives`: drives and the drive bay
-- [ ] `vaultnet_core`: central node, access control formspec
+- [x] `vaultnet_core`: central node, access control formspec
 - [ ] `vaultnet_io`: Inserter and Exporter
 - [ ] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [ ] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
@@ -39,14 +39,14 @@
 - [x] Visuals update when drives are added, removed, or change fullness
 
 ## Core / Central Node
-- [ ] Pulls all network actions together
-- [ ] Formspec for adding and removing players' access
-- [ ] Access levels:
-  - [ ] Put items
-  - [ ] Pull items
-  - [ ] Change other players' access levels
-- [ ] Inactive texture and animated "active" texture
-- [ ] Only one core per network
+- [x] Pulls all network actions together
+- [x] Formspec for adding and removing players' access
+- [x] Access levels:
+  - [x] Put items
+  - [x] Pull items
+  - [x] Change other players' access levels
+- [x] Inactive texture and animated "active" texture
+- [x] Only one core per network
 
 ## Inserter and Exporter
 - [ ] 3D models

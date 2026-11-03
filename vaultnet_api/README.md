@@ -17,6 +17,7 @@ core.register_node("mymod:thing", {
         can_connect = function(pos, node, dir) return true end,-- optional
         active_variant = "mymod:thing_active",   -- optional, for Network:apply_active(true)
         inactive_variant = "mymod:thing",        -- optional, for Network:apply_active(false)
+        variants = {multiple_cores = "mymod:thing_red"}, -- optional, per net:status() value
         get_drive_slots = function(pos) return vaultnet.inv_slots(pos, "drives") end, -- bays
         on_drives_changed = function(pos) end,   -- bays: refresh visuals
     },
@@ -32,7 +33,8 @@ returning `false` isolates the node (toggle cable off). Call
 - `vaultnet.get_network(pos)` -> network or nil (cached; rebuilt on change)
 - `net:status()` -> `"ok" | "no_core" | "multiple_cores" | "unpowered"`; `net:is_active()`
 - `net:get_positions_by_role(role)`, `net:get_core()`, `net:has(pos)`
-- `net:apply_active(bool)` swaps active/inactive variants
+- `net:apply_status(status)` swaps every device to `variants[status]`, else the active
+  (status `"ok"`) or inactive variant; `net:apply_active(bool)` is shorthand for ok/inactive
 - `net.incomplete` is true when the scan touched unloaded map area (not cached)
 - `vaultnet.register_link_provider(fn)`: `fn(pos, node, def) -> {positions}` adds
   non-adjacent edges (used by the wireless relay)
