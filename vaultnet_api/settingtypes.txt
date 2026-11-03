@@ -1,0 +1,5 @@
+# Require power for every VaultNet part (needs a power handler, see vaultnet_power).
+vaultnet_require_power (Require power) bool false
+
+# Maximum number of nodes scanned for a single network.
+vaultnet_max_network_nodes (Max nodes per network) int 4096 64 65536

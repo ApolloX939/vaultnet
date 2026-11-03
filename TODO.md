@@ -8,7 +8,7 @@
 - [ ] Set up the git repo and remote
 
 ## Modpack Layout (sub mods)
-- [ ] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
+- [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
 - [ ] `vaultnet_cables`: cables, active cables, toggle cable
 - [ ] `vaultnet_drives`: drives and the drive bay
 - [ ] `vaultnet_core`: central node, access control formspec
