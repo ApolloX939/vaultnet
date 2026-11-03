@@ -59,3 +59,10 @@ core.register_abm({
 		net:apply_active(status == "ok")
 	end,
 })
+
+-- PLACEHOLDER power: with vaultnet_require_power on and no vaultnet_power mod
+-- yet, nothing would ever count as powered. Treat everything as powered so the
+-- toggle cable can be tested. Remove when vaultnet_power exists.
+if vaultnet.require_power then
+	vaultnet.register_power_handler(function() return true end)
+end
