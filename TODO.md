@@ -17,7 +17,7 @@
 ## Modpack Layout (sub mods)
 - [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
-- [ ] `vaultnet_drives`: drives and the drive bay (drives done, bay TODO)
+- [x] `vaultnet_drives`: drives and the drive bay
 - [ ] `vaultnet_core`: central node, access control formspec
 - [ ] `vaultnet_io`: Inserter and Exporter
 - [ ] `vaultnet_autocrafter`: autocrafter (opt-in)
@@ -34,9 +34,9 @@
 - [x] Drive item keeps its contents when carried (item metadata)
 
 ## Drive Bay
-- [ ] Holds a fixed number of drives
-- [ ] 3D visual of each inserted drive, including its state light (entities or nodebox/mesh)
-- [ ] Visuals update when drives are added, removed, or change fullness
+- [x] Holds a fixed number of drives
+- [x] 3D visual of each inserted drive, including its state light (entities or nodebox/mesh)
+- [x] Visuals update when drives are added, removed, or change fullness
 
 ## Core / Central Node
 - [ ] Pulls all network actions together

@@ -38,6 +38,8 @@ for i, tier in ipairs(TIERS) do
 	})
 end
 
+dofile(modpath .. "/bay.lua")
+
 if core.get_modpath("default") then
 	dofile(modpath .. "/recipes_mtg.lua")
 end

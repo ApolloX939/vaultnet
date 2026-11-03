@@ -28,3 +28,12 @@ for i, t in ipairs(TIERS) do
 		},
 	})
 end
+
+core.register_craft({
+	output = "vaultnet_drives:bay",
+	recipe = {
+		{S, S, S},
+		{C, "default:mese_crystal", C},
+		{S, S, S},
+	},
+})

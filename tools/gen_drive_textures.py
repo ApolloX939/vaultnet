@@ -39,3 +39,31 @@ for i, c in enumerate(LIGHTS, 1):
         for y in (4, 5):
             im.putpixel((x, y), c + (255,))
     im.save(f"{out}/vaultnet_drives_light{i}.png")
+
+# --- drive bay ----------------------------------------------------------
+METAL = (0x4a, 0x4e, 0x58)
+EDGE = (0x20, 0x22, 0x28)
+
+def bay_base():
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        for x in range(16):
+            c = EDGE if x in (0, 15) or y in (0, 15) else METAL
+            im.putpixel((x, y), c + (255,))
+    return im
+
+def bay_front(led):
+    im = bay_base()
+    # 4 columns x 2 rows of dark slots; entities draw the drives over them
+    for col in range(4):
+        for row in range(2):
+            for x in range(col * 4 + 1, col * 4 + 3 + (1 if col == 3 else 0)):
+                for y in range(row * 7 + 2, row * 7 + 8):
+                    im.putpixel((x, y), (0x12, 0x13, 0x16, 255))
+    for x in (13, 14):                 # status LED
+        im.putpixel((x, 1), led + (255,))
+    return im
+
+bay_base().save(f"{out}/vaultnet_drives_bay_side.png")
+bay_front((0x30, 0x30, 0x34)).save(f"{out}/vaultnet_drives_bay_front.png")
+bay_front((0x20, 0xe0, 0xff)).save(f"{out}/vaultnet_drives_bay_front_active.png")
