@@ -4,7 +4,7 @@
 - [ ] Everything is implemented inside the modpack, with no extra mods required (adapters for other mods stay optional)
 - [ ] Structure it as a modpack: sub mods for most features, plus sub mods for cross-cutting concepts
 - [ ] Preserve all item metadata, so nothing can tell an item was stored and pulled back out (full ItemStack serialization: meta, wear, count)
-- [ ] Commit by section. Push when all work is done (only after the repo is set up and the remote is established)
+- [ ] Commit by section. Do NOT push without asking: the owner reviews commits first (remote is established)
 - [ ] Set up the git repo and remote
 
 ## Modpack Layout (sub mods)
