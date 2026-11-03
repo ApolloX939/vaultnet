@@ -1,0 +1,5 @@
+# Seconds between transfers of an Inserter or Exporter.
+vaultnet_io_interval (Inserter/Exporter interval) float 1.0 0.2 10.0
+
+# Items an Inserter or Exporter moves per transfer by default (1, 4, 16 or 64; changeable per device).
+vaultnet_io_default_amount (Default items per transfer) int 16 1 64
