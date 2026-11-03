@@ -19,7 +19,7 @@ end
 local function animated(texture)
 	return {
 		name = texture,
-		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
+		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 2.0},
 	}
 end
 
