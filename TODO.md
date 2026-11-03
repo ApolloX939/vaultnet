@@ -5,7 +5,7 @@
 - [ ] Structure it as a modpack: sub mods for most features, plus sub mods for cross-cutting concepts
 - [ ] Preserve all item metadata, so nothing can tell an item was stored and pulled back out (full ItemStack serialization: meta, wear, count)
 - [ ] Commit by section. Do NOT push without asking: the owner reviews commits first (remote is established)
-- [ ] Set up the git repo and remote
+- [x] Set up the git repo and remote
 
 ## Game Support
 - [ ] Minetest Game (first target; recipes in a per-game file, loaded only if `default` is present)
@@ -64,15 +64,15 @@
 - [ ] Inactive and active textures
 
 ## Cables
-- [ ] 3D cables that connect everything
-- [ ] Animated "active" cable set
-- [ ] Adjacent connection sharing: devices connect directly to adjacent nodes (up, down, left, right, front, back; not diagonal)
-- [ ] Network graph discovery and caching, rebuilt on place/remove
+- [x] 3D cables that connect everything
+- [x] Animated "active" cable set
+- [x] Adjacent connection sharing: devices connect directly to adjacent nodes (up, down, left, right, front, back; not diagonal)
+- [x] Network graph discovery and caching, rebuilt on place/remove
 
 ## Toggleable Cable
-- [ ] 3D toggleable cable that turns off a series of connected things
-- [ ] Only registered when the `require_power` setting is enabled
-- [ ] `require_power` defaults to `false`
+- [x] 3D toggleable cable that turns off a series of connected things
+- [x] Only registered when the `require_power` setting is enabled
+- [x] `require_power` defaults to `false`
 
 ## Wireless Relay
 - [ ] Long-distance connections
