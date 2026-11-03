@@ -19,11 +19,12 @@ local FILTER_SLOTS = 8
 local FORMNAME = "vaultnet_io:device"
 
 local FULL = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}}
+-- the plate stack plus the core; the cable stubs are not selectable
 local BOX = {
 	type = "wallmounted",
-	wall_bottom = {-0.4, -0.5, -0.4, 0.4, 0.4, 0.4},
-	wall_top = {-0.4, -0.4, -0.4, 0.4, 0.5, 0.4},
-	wall_side = {-0.5, -0.4, -0.4, 0.4, 0.4, 0.4},
+	wall_bottom = {-0.3125, -0.5, -0.3125, 0.3125, 0.125, 0.3125},
+	wall_top = {-0.3125, -0.125, -0.3125, 0.3125, 0.5, 0.3125},
+	wall_side = {-0.5, -0.3125, -0.3125, 0.125, 0.3125, 0.3125},
 }
 
 local KINDS = {
@@ -406,13 +407,18 @@ local function register(kind, active)
 	local def = {
 		description = "VaultNet " .. k.name .. (active and " (active)" or ""),
 		drawtype = "mesh",
-		mesh = "vaultnet_io_device.obj",
+		mesh = "vaultnet_io_" .. kind .. ".obj",
 		tiles = {
-			"vaultnet_io_" .. kind .. "_frame.png",
+			"vaultnet_io_device_frame.png",
 			active and {
 				name = "vaultnet_io_" .. kind .. "_glow_active.png",
 				animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
 			} or "vaultnet_io_" .. kind .. "_glow.png",
+			-- the cable stubs use the cables' own looks
+			active and {
+				name = "vaultnet_cables_cable_active.png",
+				animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 2.0},
+			} or "vaultnet_cables_cable.png",
 		},
 		paramtype = "light",
 		paramtype2 = "wallmounted",

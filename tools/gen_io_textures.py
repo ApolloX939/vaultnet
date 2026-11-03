@@ -47,81 +47,118 @@ strip.save(f"{out}/vaultnet_io_terminal_front_active.png")
 
 
 # ---- inserter / exporter -------------------------------------------------
-def device_frame(accent):
-    im = base()
-    for x in range(2, 14):                 # accent stripe
-        im.putpixel((x, 7), accent + (255,))
-        im.putpixel((x, 8), accent + (255,))
-    return im
+# Shaped after Refined Storage's Importer/Exporter: a stack of three stepped
+# square plates (2, 3 and 5 px half-width, 2 px thick) on the cable-thin core
+# (a cable stub runs to every face but the target side). The Exporter's plates
+# narrow towards the target (items leave through the tip), the Inserter's
+# widen towards it (items are taken in through the wide mouth).
+import random
+random.seed(7)
 
-GREEN, ORANGE = (0x30, 0xe0, 0x70), (0xff, 0x90, 0x20)
-device_frame(GREEN).save(f"{out}/vaultnet_io_inserter_frame.png")
-device_frame(ORANGE).save(f"{out}/vaultnet_io_exporter_frame.png")
-
-def chevrons(rgb, shift, up, bright=1.0):
-    """Chevron band. up=True: points up (flow away from the target)."""
+def device_frame():
     im = Image.new("RGBA", (16, 16))
     for y in range(16):
         for x in range(16):
-            dx = int(abs(x - 7.5) * 0.7)
-            v = (y - dx + shift) if up else (y + dx - shift)
-            lit = v % 8 in (0, 1)
-            c = tuple(int(ch * bright) for ch in rgb) if lit else (0x10, 0x12, 0x16)
-            im.putpixel((x, y), c + (255,))
+            g = 0x34 + random.choice((-2, 0, 0, 2))
+            if x in (0, 15) or y in (0, 15): g -= 0x0c
+            im.putpixel((x, y), (g, g, g, 255))
     return im
 
-def band(rgb, up, name):
-    chevrons(rgb, 0, up, 0.35).save(f"{out}/vaultnet_io_{name}_glow.png")
+device_frame().save(f"{out}/vaultnet_io_device_frame.png")
+
+GREEN, ORANGE = (0x30, 0xe0, 0x70), (0xff, 0x90, 0x20)
+
+def glow_tile(rgb, peak, bright_peak=1.0):
+    """Accent band: dim base with a bright ring at row `peak` (None = dim only)."""
+    im = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        k = 0.30
+        if peak is not None:
+            d = min(abs(y - peak), 16 - abs(y - peak))
+            k = max(k, bright_peak - d * 0.22)
+        for x in range(16):
+            im.putpixel((x, y), tuple(int(c * k) for c in rgb) + (255,))
+    return im
+
+def glow(rgb, up, name):
+    glow_tile(rgb, None).save(f"{out}/vaultnet_io_{name}_glow.png")
     strip = Image.new("RGBA", (16, 16 * 8))
     for f in range(8):
-        strip.paste(chevrons(rgb, f, up), (0, 16 * f))
+        peak = (15 - 2 * f) if up else (2 * f)      # ring travels along the flow
+        strip.paste(glow_tile(rgb, peak), (0, 16 * f))
     strip.save(f"{out}/vaultnet_io_{name}_glow_active.png")
 
-band(GREEN, True, "inserter")    # items flow from the target up into the network
-band(ORANGE, False, "exporter")  # items flow from the network down into the target
+glow(GREEN, True, "inserter")    # flow: target (-Y side) -> network
+glow(ORANGE, False, "exporter")  # flow: network -> target
 
-# model: designed for the "floor" wallmounted orientation, i.e. attached to the
-# node below, so the target is at -Y. Material order: frame (tile 1), glow (tile 2).
-verts, uvs, norms, faces = [], [], [], {"frame": [], "glow": []}
+# model: "floor" wallmounted orientation, i.e. attached to the node below, so
+# the target is at -Y. Materials (tile order): frame, glow, cable.
+def px(v): return (v - 8) / 16.0
 
-def idx(lst, v):
-    v = tuple(round(c, 5) for c in v)
-    if v not in lst:
-        lst.append(v)
-    return lst.index(v) + 1
+def build(kind, path):
+    verts, uvs, norms = [], [], []
+    faces = {"frame": [], "glow": [], "cable": []}
 
-def quad(mat, n, pts, uv):
-    faces[mat].append([(idx(verts, p), idx(uvs, t), idx(norms, n)) for p, t in zip(pts, uv)])
+    def idx(lst, v):
+        v = tuple(round(c, 5) for c in v)
+        if v not in lst: lst.append(v)
+        return lst.index(v) + 1
 
-def side_quads(x0, y0, z0, x1, y1, z1, mat, uvf):
-    return [
-        ((1, 0, 0), [(x1, y0, z1), (x1, y0, z0), (x1, y1, z0), (x1, y1, z1)]),
-        ((-1, 0, 0), [(x0, y0, z0), (x0, y0, z1), (x0, y1, z1), (x0, y1, z0)]),
-        ((0, 0, 1), [(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]),
-        ((0, 0, -1), [(x1, y0, z0), (x0, y0, z0), (x0, y1, z0), (x1, y1, z0)]),
-    ]
+    def quad(mat, n, pts, uv):
+        faces[mat].append([(idx(verts, p), idx(uvs, t), idx(norms, n)) for p, t in zip(pts, uv)])
 
-def box(x0, y0, z0, x1, y1, z1):
-    for n, pts in side_quads(x0, y0, z0, x1, y1, z1, "frame", None):
-        quad("frame", n, pts, [(p[2] + .5 if n[0] else p[0] + .5, p[1] + .5) for p in pts])
-    quad("frame", (0, 1, 0), [(x0, y1, z1), (x1, y1, z1), (x1, y1, z0), (x0, y1, z0)],
-         [(x0 + .5, z1 + .5), (x1 + .5, z1 + .5), (x1 + .5, z0 + .5), (x0 + .5, z0 + .5)])
-    quad("frame", (0, -1, 0), [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)],
-         [(x0 + .5, z0 + .5), (x1 + .5, z0 + .5), (x1 + .5, z1 + .5), (x0 + .5, z1 + .5)])
+    def box(x0, y0, z0, x1, y1, z1, side_mat, cap_mat=None, skip=()):
+        cap_mat = cap_mat or side_mat
+        F = {
+            "+x": ((1, 0, 0), [(x1, y0, z1), (x1, y0, z0), (x1, y1, z0), (x1, y1, z1)], side_mat),
+            "-x": ((-1, 0, 0), [(x0, y0, z0), (x0, y0, z1), (x0, y1, z1), (x0, y1, z0)], side_mat),
+            "+z": ((0, 0, 1), [(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)], side_mat),
+            "-z": ((0, 0, -1), [(x1, y0, z0), (x0, y0, z0), (x0, y1, z0), (x1, y1, z0)], side_mat),
+            "+y": ((0, 1, 0), [(x0, y1, z1), (x1, y1, z1), (x1, y1, z0), (x0, y1, z0)], cap_mat),
+            "-y": ((0, -1, 0), [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)], cap_mat),
+        }
+        for name, (n, pts, mat) in F.items():
+            if name in skip: continue
+            if mat == "glow":   # whole tile on each side face
+                uv = [(0, 0), (1, 0), (1, 1), (0, 1)]
+            elif n[1]:
+                uv = [(p[0] + .5, p[2] + .5) for p in pts]
+            elif n[0]:
+                uv = [(p[2] + .5, p[1] + .5) for p in pts]
+            else:
+                uv = [(p[0] + .5, p[1] + .5) for p in pts]
+            quad(mat, n, pts, uv)
 
-box(-0.4, -0.5, -0.4, 0.4, -0.4, 0.4)      # flange against the target
-box(-0.3, -0.4, -0.3, 0.3, 0.3, 0.3)       # body
-box(-0.35, 0.3, -0.35, 0.35, 0.4, 0.35)    # cap
-G = 0.32
-for n, pts in side_quads(-G, -0.2, -G, G, 0.2, G, "glow", None):   # chevron band
-    quad("glow", n, pts, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    # plates, listed from the target end (y = -8 px) inwards
+    steps = [(-8, -6), (-6, -4), (-4, -2)]
+    halves = [2, 3, 5] if kind == "exporter" else [5, 3, 2]
+    for (y0, y1), h in zip(steps, halves):
+        mat = "glow" if (y0, y1) == (-6, -4) else "frame"
+        box(px(8 - h), px(8 + y0), px(8 - h), px(8 + h), px(8 + y1), px(8 + h),
+            mat, "frame")
 
-with open(f"{mod}/models/vaultnet_io_device.obj", "w") as f:
-    f.write("# VaultNet inserter/exporter (generated by tools/gen_io_textures.py)\n")
-    for v in verts: f.write("v %g %g %g\n" % v)
-    for t in uvs: f.write("vt %g %g\n" % t)
-    for nn in norms: f.write("vn %g %g %g\n" % nn)
-    for mat in ("frame", "glow"):
-        f.write(f"o {mat}\nusemtl {mat}\n")
-        for face in faces[mat]:
-            f.write("f " + " ".join("%d/%d/%d" % t for t in face) + "\n")
+    # cable core and a stub to every face except the target side (-Y)
+    c = 2
+    box(px(8 - c), px(8 - c), px(8 - c), px(8 + c), px(8 + c), px(8 + c), "cable", skip=("-y",))
+    for ax in "xyz":
+        for sign in (-1, 1):
+            if ax == "y" and sign < 0: continue
+            lo = [px(8 - c)] * 3
+            hi = [px(8 + c)] * 3
+            i = "xyz".index(ax)
+            if sign > 0: lo[i], hi[i] = px(8 + c), 0.5
+            else: lo[i], hi[i] = -0.5, px(8 - c)
+            box(*lo, *hi, "cable")
+
+    with open(path, "w") as f:
+        f.write(f"# VaultNet {kind} (generated by tools/gen_io_textures.py)\n")
+        for v in verts: f.write("v %g %g %g\n" % v)
+        for t in uvs: f.write("vt %g %g\n" % t)
+        for nn in norms: f.write("vn %g %g %g\n" % nn)
+        for mat in ("frame", "glow", "cable"):
+            f.write(f"o {mat}\nusemtl {mat}\n")
+            for face in faces[mat]:
+                f.write("f " + " ".join("%d/%d/%d" % t for t in face) + "\n")
+
+build("inserter", f"{mod}/models/vaultnet_io_inserter.obj")
+build("exporter", f"{mod}/models/vaultnet_io_exporter.obj")

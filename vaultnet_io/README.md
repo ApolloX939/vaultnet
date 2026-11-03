@@ -18,9 +18,13 @@ Right-click to open. Needs `put` or `pull` access on the network's core.
 ## Inserter and Exporter (`vaultnet_io:inserter`, `vaultnet_io:exporter`)
 
 - **Inserter**: target inventory -> network. **Exporter**: network -> target inventory.
-- 3D mesh, placed *against* a node: it points at (is attached to) that node. Green
-  chevrons (inserter) / orange chevrons (exporter) show the flow and animate while
-  the network is active.
+- 3D mesh in the style of Refined Storage's Importer/Exporter: three stepped square
+  plates on a cable-thin core with a cable stub on every other face. The Exporter's
+  plates narrow towards the target (items leave through the tip), the Inserter's widen
+  towards it (items are taken in through the wide mouth). The middle plate glows green
+  (Inserter) / orange (Exporter) and a ring travels along the flow while the network is
+  active; the stubs use the cable textures.
+- Placed *against* a node: it points at (is attached to) that node.
 - Right-click to configure: a non-interactive preview of the target's inventory
   layout (read from its `formspec` meta, or a generated grid when it has none); click
   an inventory list to use it, or tick it in the column on the right. A target with a
