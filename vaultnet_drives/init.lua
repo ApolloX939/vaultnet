@@ -3,10 +3,16 @@ local modpath = core.get_modpath(modname)
 local S = core.settings
 
 local TIERS = {
-	{name = "Small", capacity = 1024, max_types = 8},
-	{name = "Medium", capacity = 4096, max_types = 16},
-	{name = "Large", capacity = 16384, max_types = 32},
-	{name = "Huge", capacity = 65536, max_types = 0},
+	{name = "Tiny", capacity = 1024},
+	{name = "Mini", capacity = 2048},
+	{name = "Small", capacity = 4096},
+	{name = "Medium", capacity = 8192},
+	{name = "Large", capacity = 16384},
+	{name = "Big", capacity = 32768},
+	{name = "Huge", capacity = 65536},
+	{name = "Giant", capacity = 262144},
+	{name = "Massive", capacity = 1048576},
+	{name = "Colossal", capacity = 4194304},
 }
 
 local function state_image(base)
@@ -17,7 +23,6 @@ end
 
 for i, tier in ipairs(TIERS) do
 	local capacity = tonumber(S:get("vaultnet_drives_capacity_" .. i)) or tier.capacity
-	local max_types = tonumber(S:get("vaultnet_drives_max_types_" .. i)) or tier.max_types
 	local base = "vaultnet_drives_drive" .. i .. ".png"
 
 	core.register_craftitem(modname .. ":drive" .. i, {
@@ -28,7 +33,6 @@ for i, tier in ipairs(TIERS) do
 		groups = {vaultnet_drive = 1},
 		vaultnet_drive = {
 			capacity = capacity,
-			max_types = max_types > 0 and max_types or nil,
 			state_image = state_image(base),
 		},
 	})

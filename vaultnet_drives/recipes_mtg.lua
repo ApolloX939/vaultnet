@@ -1,40 +1,30 @@
 -- Minetest Game recipes. Tiers are crafted from raw materials (never from a
 -- lower drive) so no stored contents can be lost in a craft.
+-- Layout: {X, glass, X} / {steel, core, steel} / {steel, copper, steel}
 
 local S, G, C = "default:steel_ingot", "default:glass", "default:copper_ingot"
 
-core.register_craft({
-	output = "vaultnet_drives:drive1",
-	recipe = {
-		{S, G, S},
-		{S, "default:mese_crystal_fragment", S},
-		{S, C, S},
-	},
-})
+-- {X, core} per tier
+local TIERS = {
+	{S, "default:mese_crystal_fragment"},
+	{"default:bronze_ingot", "default:mese_crystal_fragment"},
+	{S, "default:mese_crystal"},
+	{"default:bronze_ingot", "default:mese_crystal"},
+	{"default:gold_ingot", "default:mese_crystal"},
+	{"default:gold_ingot", "default:diamond"},
+	{"default:mese_crystal", "default:diamond"},
+	{"default:diamond", "default:mese"},
+	{"default:mese", "default:diamondblock"},
+	{"default:diamondblock", "default:mese"},
+}
 
-core.register_craft({
-	output = "vaultnet_drives:drive2",
-	recipe = {
-		{S, G, S},
-		{S, "default:mese_crystal", S},
-		{S, C, S},
-	},
-})
-
-core.register_craft({
-	output = "vaultnet_drives:drive3",
-	recipe = {
-		{"default:mese_crystal", G, "default:mese_crystal"},
-		{S, "default:diamond", S},
-		{S, C, S},
-	},
-})
-
-core.register_craft({
-	output = "vaultnet_drives:drive4",
-	recipe = {
-		{"default:diamond", G, "default:diamond"},
-		{"default:mese_crystal", "default:mese_block", "default:mese_crystal"},
-		{S, C, S},
-	},
-})
+for i, t in ipairs(TIERS) do
+	core.register_craft({
+		output = "vaultnet_drives:drive" .. i,
+		recipe = {
+			{t[1], G, t[1]},
+			{S, t[2], S},
+			{S, C, S},
+		},
+	})
+end

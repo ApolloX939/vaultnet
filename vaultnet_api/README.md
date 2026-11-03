@@ -39,7 +39,7 @@ returning `false` isolates the node (toggle cable off). Call
 
 ## Storage
 
-Drive items define `vaultnet_drive = {capacity = N, max_types = M}`; contents are
+Drive items define `vaultnet_drive = {capacity = N}`; contents are
 stored in the item's own meta keyed by the full ItemStack string, so wear and all
 meta come back unchanged. Drives cannot be stored in drives.
 

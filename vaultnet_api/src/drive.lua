@@ -1,5 +1,5 @@
 -- Drive items. A drive is any item whose definition has:
---   vaultnet_drive = { capacity = <total items>, max_types = <distinct kinds, optional> }
+--   vaultnet_drive = { capacity = <total items> }
 -- Contents live in the drive ItemStack's own meta, so a drive keeps its items
 -- when carried. Stored items are keyed by their full ItemStack string (name,
 -- wear and every meta field), so they come back out byte-for-byte identical.
@@ -60,7 +60,6 @@ function D.info(stack)
 		used = data.used,
 		capacity = def.capacity,
 		types = data.types,
-		max_types = def.max_types,
 		fullness = def.capacity > 0 and data.used / def.capacity or 1,
 	}
 end
@@ -97,9 +96,6 @@ function D.add(stack, itemstack)
 	if free <= 0 then return 0 end
 	local key = vaultnet.item_key(itemstack)
 	local existing = data.items[key]
-	if not existing and def.max_types and data.types >= def.max_types then
-		return 0
-	end
 	local n = math.min(free, itemstack:get_count())
 	if not existing then data.types = data.types + 1 end
 	data.items[key] = (existing or 0) + n
