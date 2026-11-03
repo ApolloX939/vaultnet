@@ -19,7 +19,7 @@
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
 - [x] `vaultnet_drives`: drives and the drive bay
 - [x] `vaultnet_core`: central node, access control formspec
-- [ ] `vaultnet_io`: Inserter and Exporter
+- [ ] `vaultnet_io`: Inserter and Exporter (terminal done, Inserter/Exporter TODO)
 - [ ] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [ ] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
 - [ ] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
@@ -55,6 +55,12 @@
 - [ ] "Preview" of the target node's formspec, to visually select which inventory(ies) the Inserter puts into and the Exporter pulls from
 - [ ] Inactive texture and animated active texture
 - [ ] Filters and other settings (optional)
+
+## Terminal (in `vaultnet_io`)
+- [x] Browse network contents with search and paging
+- [x] Take items out (1 / 10 / stack), metadata intact, respects `pull` access
+- [x] Insert items, respects `put` access
+- [x] Inactive texture and animated active texture
 
 ## Autocrafter
 - [ ] Supports normal (shaped) recipes
