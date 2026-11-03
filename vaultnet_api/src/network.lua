@@ -181,7 +181,14 @@ function Network:apply_active(state)
 		local node = core.get_node_or_nil(pos)
 		local def = node and vaultnet.get_def(node.name)
 		if def then
-			local target = state and def.active_variant or def.inactive_variant
+			-- (not `state and a or b`: that falls through to b when a is nil,
+			-- which flipped already-active nodes back to inactive)
+			local target
+			if state then
+				target = def.active_variant
+			else
+				target = def.inactive_variant
+			end
 			if target and target ~= node.name then
 				node.name = target
 				core.swap_node(pos, node)
