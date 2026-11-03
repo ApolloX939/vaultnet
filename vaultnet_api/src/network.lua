@@ -48,6 +48,8 @@ function vaultnet.notify_changed(pos)
 	for _, d in ipairs(vaultnet.DIRS) do
 		invalidate({x = pos.x + d.x, y = pos.y + d.y, z = pos.z + d.z})
 	end
+	-- re-evaluate active/inactive looks shortly after the change settles
+	if vaultnet.schedule_refresh then vaultnet.schedule_refresh(pos) end
 end
 
 local function add_member(net, pos, def)

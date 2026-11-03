@@ -50,6 +50,12 @@ core.register_abm({
 		local now = core.get_gametime()
 		if net.dummy_stamp == now then return end
 		net.dummy_stamp = now
-		net:apply_active(net:is_active())
+		local status = net:status()
+		if net.dummy_last ~= status then
+			net.dummy_last = status
+			core.log("action", ("[vaultnet_core placeholder] net #%d: %d nodes, %d core(s), status=%s%s"):format(
+				net.id, net.count, #net.cores, status, net.incomplete and " (incomplete)" or ""))
+		end
+		net:apply_active(status == "ok")
 	end,
 })
