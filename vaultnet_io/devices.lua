@@ -2,8 +2,11 @@
 --
 --  Inserter: target inventory -> network.   Exporter: network -> target inventory.
 --
--- Place the device against a node: it points at that node (wallmounted, so the
--- target is the node it is attached to). Right-click opens the configuration:
+-- Place the device against a node: it points at that node. There is one node
+-- per pointing direction (e.g. vaultnet_io:inserter_ny points at the node below);
+-- the placeable item picks the right one. Cable stubs are connected-nodebox arms,
+-- so they only show on sides where a cable (or other device) is. Right-click
+-- opens the configuration:
 -- a non-interactive preview of the target's inventory layout where you click the
 -- inventory lists to use, an amount per transfer and an item filter.
 --
@@ -18,23 +21,92 @@ local AMOUNTS = {1, 4, 16, 64}
 local FILTER_SLOTS = 8
 local FORMNAME = "vaultnet_io:device"
 
-local FULL = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}}
--- the plate stack plus the core; the cable stubs are not selectable
-local BOX = {
-	type = "wallmounted",
-	wall_bottom = {-0.3125, -0.5, -0.3125, 0.3125, 0.125, 0.3125},
-	wall_top = {-0.3125, -0.125, -0.3125, 0.3125, 0.5, 0.3125},
-	wall_side = {-0.5, -0.3125, -0.3125, 0.125, 0.3125, 0.3125},
+local KINDS = {
+	inserter = {name = "Inserter", tint = "#d4ffe0"},
+	exporter = {name = "Exporter", tint = "#ffe6c8"},
 }
 
-local KINDS = {
-	inserter = {name = "Inserter", node = "vaultnet_io:inserter", active = "vaultnet_io:inserter_active"},
-	exporter = {name = "Exporter", node = "vaultnet_io:exporter", active = "vaultnet_io:exporter_active"},
+-- Pointing directions: suffix -> vector from the device to its target.
+local DIRS = {
+	ny = {x = 0, y = -1, z = 0}, py = {x = 0, y = 1, z = 0},
+	nx = {x = -1, y = 0, z = 0}, px = {x = 1, y = 0, z = 0},
+	nz = {x = 0, y = 0, z = -1}, pz = {x = 0, y = 0, z = 1},
 }
-local kind_of = {} -- node name -> kind
-for kind, k in pairs(KINDS) do
-	kind_of[k.node] = kind
-	kind_of[k.active] = kind
+local function suffix_of(v)
+	for suffix, d in pairs(DIRS) do
+		if d.x == v.x and d.y == v.y and d.z == v.z then return suffix end
+	end
+end
+
+local function node_name(kind, suffix, active)
+	return ("vaultnet_io:%s_%s%s"):format(kind, suffix, active and "_active" or "")
+end
+
+local kind_of = {}  -- node name -> kind
+local dir_of = {}   -- node name -> direction vector to the target
+for kind in pairs(KINDS) do
+	for suffix, vec in pairs(DIRS) do
+		for _, active in ipairs({false, true}) do
+			local n = node_name(kind, suffix, active)
+			kind_of[n], dir_of[n] = kind, vec
+		end
+	end
+end
+
+-- Shape, modelled on Refined Storage's Importer/Exporter: three stepped square
+-- plates (half-widths in 1/16 node, 2 thick each) in front of a 4/16 core. The
+-- Exporter's plates narrow towards the target, the Inserter's widen. Written for
+-- a target at -Y, then rotated per direction.
+local PLATE_HALF = {
+	exporter = {2, 3, 5},
+	inserter = {5, 3, 2},
+}
+local R = 2 / 16 -- cable thickness, same as vaultnet_cables
+
+-- Map a box from the "target at -Y" frame to direction `suffix`.
+local function orient(box, suffix)
+	local function pt(x, y, z)
+		if suffix == "ny" then return x, y, z
+		elseif suffix == "py" then return x, -y, z
+		elseif suffix == "nx" then return y, x, z
+		elseif suffix == "px" then return -y, x, z
+		elseif suffix == "nz" then return x, z, y
+		else return x, z, -y end -- pz
+	end
+	local ax, ay, az = pt(box[1], box[2], box[3])
+	local bx, by, bz = pt(box[4], box[5], box[6])
+	return {math.min(ax, bx), math.min(ay, by), math.min(az, bz),
+		math.max(ax, bx), math.max(ay, by), math.max(az, bz)}
+end
+
+local function node_box(kind, suffix)
+	local fixed = {}
+	local y = -0.5
+	for _, half in ipairs(PLATE_HALF[kind]) do
+		local h = half / 16
+		fixed[#fixed + 1] = orient({-h, y, -h, h, y + 2 / 16, h}, suffix)
+		y = y + 2 / 16
+	end
+	fixed[#fixed + 1] = orient({-R, -R, -R, R, R, R}, suffix)
+
+	local nb = {type = "connected", fixed = fixed}
+	-- one cable stub per side, except the target side (the plates are there)
+	local arms = {
+		py = {"connect_top", {-R, R, -R, R, 0.5, R}},
+		ny = {"connect_bottom", {-R, -0.5, -R, R, -R, R}},
+		nz = {"connect_front", {-R, -R, -0.5, R, R, -R}},
+		pz = {"connect_back", {-R, -R, R, R, R, 0.5}},
+		nx = {"connect_left", {-0.5, -R, -R, -R, R, R}},
+		px = {"connect_right", {R, -R, -R, 0.5, R, R}},
+	}
+	for side, arm in pairs(arms) do
+		if side ~= suffix then nb[arm[1]] = arm[2] end
+	end
+
+	-- selectable/solid part: the plates and the core
+	local sel = {}
+	for i, b in ipairs(fixed) do sel[i] = b end
+	return nb, {type = "fixed", fixed = sel}
 end
 
 -- Meta helpers ------------------------------------------------------------------
@@ -69,7 +141,7 @@ local function make_filter(meta)
 end
 
 local function target_pos(pos, node)
-	local dir = core.wallmounted_to_dir(node.param2)
+	local dir = dir_of[node.name]
 	return {x = pos.x + dir.x, y = pos.y + dir.y, z = pos.z + dir.z}
 end
 
@@ -189,10 +261,12 @@ local function run(pos, node)
 	set_info(pos, kind, moved > 0 and "Working" or "Idle")
 end
 
+local ALL_NODES = {}
+for name in pairs(kind_of) do ALL_NODES[#ALL_NODES + 1] = name end
+
 core.register_abm({
 	label = "VaultNet inserter/exporter",
-	nodenames = {"vaultnet_io:inserter", "vaultnet_io:inserter_active",
-		"vaultnet_io:exporter", "vaultnet_io:exporter_active"},
+	nodenames = ALL_NODES,
 	interval = INTERVAL,
 	chance = 1,
 	action = run,
@@ -402,35 +476,32 @@ core.register_on_leaveplayer(function(player) contexts[player:get_player_name()]
 
 -- Nodes -----------------------------------------------------------------------------
 
-local function register(kind, active)
+local function register(kind, suffix, active)
 	local k = KINDS[kind]
+	local item = "vaultnet_io:" .. kind
+	local nb, sel = node_box(kind, suffix)
+	-- cable looks (animated while active), lightly tinted per device kind
+	local tint = "^[multiply:" .. k.tint
+	local texture = active and {
+		name = "vaultnet_cables_cable_active.png" .. tint,
+		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 2.0},
+	} or ("vaultnet_cables_cable.png" .. tint)
 	local def = {
 		description = "VaultNet " .. k.name .. (active and " (active)" or ""),
-		drawtype = "mesh",
-		mesh = "vaultnet_io_" .. kind .. ".obj",
-		tiles = {
-			"vaultnet_io_device_frame.png",
-			active and {
-				name = "vaultnet_io_" .. kind .. "_glow_active.png",
-				animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
-			} or "vaultnet_io_" .. kind .. "_glow.png",
-			-- the cable stubs use the cables' own looks
-			active and {
-				name = "vaultnet_cables_cable_active.png",
-				animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 2.0},
-			} or "vaultnet_cables_cable.png",
-		},
+		drawtype = "nodebox",
+		node_box = nb,
+		selection_box = sel,
+		collision_box = sel,
+		connects_to = {"group:vaultnet_device"},
+		tiles = {texture},
 		paramtype = "light",
-		paramtype2 = "wallmounted",
-		selection_box = BOX,
-		collision_box = BOX,
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
-		groups = {cracky = 2, vaultnet_device = 1},
-		drop = k.node,
+		groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = 1},
+		drop = item,
 		vaultnet = {
 			role = kind,
-			active_variant = not active and k.active or nil,
-			inactive_variant = active and k.node or nil,
+			active_variant = not active and node_name(kind, suffix, true) or nil,
+			inactive_variant = active and node_name(kind, suffix, false) or nil,
 		},
 
 		on_construct = function(pos)
@@ -462,14 +533,35 @@ local function register(kind, active)
 		end,
 		allow_metadata_inventory_move = function() return 0 end,
 	}
-	if active then
-		def.light_source = 3
-		def.groups.not_in_creative_inventory = 1
-	end
-	core.register_node(active and k.active or k.node, def)
+	if active then def.light_source = 3 end
+	core.register_node(node_name(kind, suffix, active), def)
+end
+
+-- The item you hold: places the variant that points at the clicked node.
+local function register_item(kind)
+	local k = KINDS[kind]
+	core.register_craftitem("vaultnet_io:" .. kind, {
+		description = "VaultNet " .. k.name,
+		inventory_image = "vaultnet_io_" .. kind .. ".png",
+		wield_image = "vaultnet_io_" .. kind .. ".png",
+		on_place = function(itemstack, placer, pointed)
+			if not placer or not pointed or pointed.type ~= "node" then return itemstack end
+			local toward = vector.subtract(pointed.under, pointed.above)
+			local suffix = suffix_of(toward)
+			if not suffix then return itemstack end
+			local left = core.item_place(ItemStack(node_name(kind, suffix, false)), placer, pointed)
+			if left and left:is_empty() and not core.is_creative_enabled(placer:get_player_name()) then
+				itemstack:take_item()
+			end
+			return itemstack
+		end,
+	})
 end
 
 for kind in pairs(KINDS) do
-	register(kind, false)
-	register(kind, true)
+	register_item(kind)
+	for suffix in pairs(DIRS) do
+		register(kind, suffix, false)
+		register(kind, suffix, true)
+	end
 end
