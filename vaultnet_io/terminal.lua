@@ -52,7 +52,9 @@ end
 local function net_of(pos)
 	local net = vaultnet.get_network(pos)
 	if not net then return nil, nil, "no_core" end
-	return net, net:get_core(), net:status()
+	local status = net:status()
+	if status == "ok" and not vaultnet.is_powered(pos) then status = "unpowered" end
+	return net, net:get_core(), status
 end
 
 local function filter(entries, search)
@@ -148,8 +150,9 @@ end
 
 local function take(pos, player, entry, amount_label)
 	local name = player:get_player_name()
-	local net = net_of(pos)
+	local net, _, status = net_of(pos)
 	if not net then return end
+	if status ~= "ok" then say(name, ERR_TEXT[status] or status) return end
 	local want
 	if amount_label == "1" then
 		want = 1
@@ -232,9 +235,9 @@ local function register(name, desc, front, vn, extra)
 				say(pname, ERR_TEXT.not_storable)
 				return 0
 			end
-			local net = net_of(pos)
-			local ok, err = false, "no_core"
-			if net then ok, err = net:check({actor = pname}, "put") end
+			local net, _, status = net_of(pos)
+			local ok, err = false, status
+			if net and status == "ok" then ok, err = net:check({actor = pname}, "put") end
 			if not ok then
 				say(pname, ERR_TEXT[err] or err)
 				return 0
@@ -266,6 +269,7 @@ end
 
 register(IDLE, "VaultNet Terminal", "vaultnet_io_terminal_front.png", {
 	role = "terminal",
+	consumes_power = true,
 	active_variant = ACTIVE,
 })
 
@@ -274,6 +278,7 @@ register(ACTIVE, "VaultNet Terminal (active)", {
 	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 4.8},
 }, {
 	role = "terminal",
+	consumes_power = true,
 	inactive_variant = IDLE,
 }, {
 	drop = IDLE,

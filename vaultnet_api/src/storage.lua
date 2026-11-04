@@ -44,7 +44,8 @@ local function each_drive(net, fn)
 	local stop = false
 	for _, host in ipairs(net.drive_hosts) do
 		local def = vaultnet.get_def(core.get_node(host).name)
-		if def and def.get_drive_slots then
+		-- (an unpowered bay's drives are out of reach)
+		if def and def.get_drive_slots and vaultnet.is_powered(host) then
 			for _, slot in ipairs(def.get_drive_slots(host)) do
 				local stack = slot.get()
 				if drive.is_drive(stack) then

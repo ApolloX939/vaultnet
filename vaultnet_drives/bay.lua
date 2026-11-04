@@ -230,6 +230,7 @@ end
 local function vn(extra)
 	local t = {
 		role = "bay",
+		consumes_power = true,
 		get_drive_slots = function(pos) return vaultnet.inv_slots(pos, "drives") end,
 		on_drives_changed = update_visuals,
 	}

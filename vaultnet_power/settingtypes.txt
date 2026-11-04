@@ -1,0 +1,10 @@
+# Which power source VaultNet parts draw from when "require_power" is on.
+# auto: Technic if present (vaultnet_power_technic), else Techage (vaultnet_power_techage), else the built-in generators.
+vaultnet_power_backend (Power backend) enum auto auto,standalone,technic,techage
+
+# Scales how much power every part draws (1.0 = defaults).
+vaultnet_power_use_multiplier (Power use multiplier) float 1.0 0.1 100.0
+
+# Power the built-in generator provides while burning fuel, and the solar panel in daylight (units per second).
+vaultnet_power_generator_output (Generator output) int 60 1 10000
+vaultnet_power_solar_output (Solar panel output) int 8 1 10000

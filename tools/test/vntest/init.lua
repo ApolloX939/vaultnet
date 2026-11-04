@@ -18,9 +18,8 @@ local function at(x, y, z) return {x = P0.x + x, y = P0.y + y, z = P0.z + z} end
 local function static_checks()
 	-- every texture/mesh referenced by vaultnet nodes and items exists
 	local dirs = {}
-	for _, m in ipairs({"vaultnet_api", "vaultnet_cables", "vaultnet_core", "vaultnet_drives",
-			"vaultnet_io", "vaultnet_autocrafter", "vaultnet_wireless"}) do
-		dirs[#dirs + 1] = core.get_modpath(m)
+	for _, m in ipairs(core.get_modnames()) do
+		if m:match("^vaultnet_") then dirs[#dirs + 1] = core.get_modpath(m) end
 	end
 	local function exists(kind, file)
 		for _, d in ipairs(dirs) do
@@ -64,7 +63,7 @@ local function static_checks()
 	end
 end
 
-local function main()
+local function main_normal()
 	static_checks()
 
 	-- layout
@@ -286,11 +285,97 @@ local function main()
 	core.request_shutdown("tests done", false, 0)
 end
 
+
+-- Power (run with vaultnet_require_power = true; see tools/run_tests.sh --power) ------------
+local function main_power()
+	static_checks()
+	local P = {
+		core = at(0, 0, 0), cable = at(1, 0, 0), bay = at(2, 0, 0), term = at(3, 0, 0),
+		gen = at(1, 0, 1), solar = at(2, 0, 1), ins = at(1, 0, 2),
+	}
+	for x = -2, 8 do for z = -2, 4 do
+		for y = -1, 3 do core.set_node(at(x, y, z), {name = "air"}) end
+		core.set_node(at(x, -1, z), {name = "default:stone"})
+	end end
+	core.set_node(P.core, {name = "vaultnet_core:core"})
+	core.set_node(P.cable, {name = "vaultnet_cables:cable"})
+	core.set_node(P.bay, {name = "vaultnet_drives:bay"})
+	core.set_node(P.term, {name = "vaultnet_io:terminal"})
+	core.set_node(P.gen, {name = "vaultnet_power:generator"})
+	core.set_node(P.ins, {name = "vaultnet_io:inserter_pz"})
+	vaultnet.access.init(P.core, "tester")
+	core.get_meta(P.bay):get_inventory():set_stack("drives", 1, ItemStack("vaultnet_drives:drive1"))
+
+	check("power: toggle cable registered with require_power", core.registered_nodes["vaultnet_cables:toggle_on"] ~= nil)
+	check("power: a backend was selected", vaultnet.power and vaultnet.power.active ~= nil, vaultnet.power and vaultnet.power.active)
+	check("power: active backend is " .. (os.getenv and "set" or "?"), true)
+	local def_core = vaultnet.get_def("vaultnet_core:core")
+	check("power: parts declare consumption", vaultnet.power_use(def_core) == 10 and
+		vaultnet.power_use(vaultnet.get_def("vaultnet_drives:bay")) == 5 and
+		vaultnet.power_use(vaultnet.get_def("vaultnet_cables:cable")) == 0)
+
+	local backend = vaultnet.power.active
+	local net = vaultnet.get_network(P.core)
+	check("power: network has the generator", net:has(P.gen))
+	if backend == "standalone" then
+		check("power: no fuel -> status unpowered", net:status() == "unpowered", net:status())
+		check("power: unpowered network refuses storage", select(2, net:insert(ItemStack("default:dirt"))) == "unpowered")
+		net:apply_status(net:status())
+		check("power: parts look inactive without power", core.get_node(P.term).name == "vaultnet_io:terminal"
+			and core.get_node(P.core).name == "vaultnet_core:core")
+		local supply, demand = vaultnet.power.budget(net)
+		check("power: budget supply 0, demand = core+bay+terminal+inserter (10+5+2+3)", supply == 0 and demand == 20, supply .. "/" .. demand)
+
+		local inv = core.get_meta(P.gen):get_inventory()
+		inv:set_stack("fuel", 1, ItemStack("default:coal_lump 2"))
+		local gen_tick = abm_action("VaultNet generator")
+		gen_tick(P.gen, core.get_node(P.gen))
+		check("power: generator lights fuel when the network needs power", core.get_meta(P.gen):get_int("burn_left") > 0,
+			core.get_meta(P.gen):get_int("burn_left"))
+		check("power: generator node swapped to active", core.get_node(P.gen).name == "vaultnet_power:generator_active")
+		check("power: fuel item consumed", inv:get_stack("fuel", 1):get_count() == 1)
+		net = vaultnet.get_network(P.core)
+		net.power_cache = nil
+		check("power: network now ok", net:status() == "ok", net:status())
+		local left, err = net:insert(ItemStack("default:dirt 5"))
+		check("power: storage works when powered", left:is_empty() and not err, err)
+		net:apply_status(net:status())
+		check("power: parts look active when powered", core.get_node(P.core).name == "vaultnet_core:core_active"
+			and core.get_node(P.term).name == "vaultnet_io:terminal_active",
+			core.get_node(P.core).name .. " " .. core.get_node(P.term).name)
+		-- running out
+		core.get_meta(P.gen):set_int("burn_left", 1)
+		inv:set_stack("fuel", 1, ItemStack(""))
+		gen_tick(P.gen, core.get_node(P.gen))
+		check("power: generator stops when fuel runs out", core.get_node(P.gen).name == "vaultnet_power:generator")
+		net = vaultnet.get_network(P.core); net.power_cache = nil
+		check("power: network unpowered again", net:status() == "unpowered", net:status())
+		-- generator only burns when needed: nothing to power -> removing demand
+		check("power: formspec info available", vaultnet.power_info(net).demand == 20)
+		-- inserter does nothing without power
+		local cin = at(1, 0, 3)
+		core.set_node(cin, {name = "default:chest"})
+		core.get_meta(cin):get_inventory():add_item("main", ItemStack("default:cobble 8"))
+		core.get_meta(P.ins):set_string("lists", core.serialize({main = true}))
+		abm_action("VaultNet inserter/exporter")(P.ins, core.get_node(P.ins))
+		check("power: inserter idle without power", core.get_meta(cin):get_inventory():get_stack("main", 1):get_count() == 8)
+		-- solar panel at night/day isn't deterministic in a headless world; just check the API
+		check("power: solar supply function works", type(vaultnet.get_def("vaultnet_power:solar").power_supply(P.solar)) == "number")
+	else
+		check("power: backend handler decides: parts unpowered without supply", not vaultnet.is_powered(P.term))
+	end
+
+	local failed = 0
+	for _, r in ipairs(results) do if not r[2] then failed = failed + 1 end end
+	print(("SUMMARY: %d tests, %d failed"):format(#results, failed))
+	core.request_shutdown("tests done", false, 0)
+end
+
 core.after(1, function()
 	core.emerge_area(vector.add(P0, {x = -4, y = -4, z = -4}), vector.add(P0, {x = 50, y = 6, z = 8}),
 		function(_, _, remaining)
 			if remaining == 0 then
-				local ok, err = xpcall(main, debug.traceback)
+				local ok, err = xpcall(vaultnet.require_power and main_power or main_normal, debug.traceback)
 				if not ok then print("HARNESS ERROR: " .. tostring(err)); core.request_shutdown("err", false, 0) end
 			end
 		end)

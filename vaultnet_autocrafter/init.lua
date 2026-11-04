@@ -125,6 +125,7 @@ local function run(pos, node)
 	local meta = core.get_meta(pos)
 	local net = vaultnet.get_network(pos)
 	if not net or net:status() ~= "ok" then return set_status(pos, "Network offline") end
+	if not vaultnet.is_powered(pos) then return set_status(pos, "No power") end
 
 	local owner = meta:get_string("owner")
 	local opts = owner ~= "" and {actor = owner} or {}
@@ -237,6 +238,7 @@ end
 
 register(IDLE, "VaultNet Autocrafter", "vaultnet_autocrafter_front.png", {
 	role = "autocrafter",
+	consumes_power = true,
 	active_variant = ACTIVE,
 })
 
@@ -245,6 +247,7 @@ register(ACTIVE, "VaultNet Autocrafter (active)", {
 	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 2.7},
 }, {
 	role = "autocrafter",
+	consumes_power = true,
 	inactive_variant = IDLE,
 }, {
 	drop = IDLE,

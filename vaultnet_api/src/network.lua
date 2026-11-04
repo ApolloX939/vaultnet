@@ -187,9 +187,15 @@ function Network:apply_status(status)
 		if def then
 			-- (not `cond and a or b`: that falls through to b when a is nil,
 			-- which flipped already-active nodes back to inactive)
-			local target = def.variants and def.variants[status]
+			-- a part without power looks inactive even when the network is up
+			local st = status
+			if st == "ok" and def.consumes_power and vaultnet.require_power
+					and not vaultnet.is_powered(pos) then
+				st = "unpowered"
+			end
+			local target = def.variants and def.variants[st]
 			if not target then
-				if status == "ok" then
+				if st == "ok" then
 					target = def.active_variant
 				else
 					target = def.inactive_variant

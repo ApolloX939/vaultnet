@@ -50,12 +50,15 @@ local function is_relay(name) return name == IDLE or name == ACTIVE end
 
 vaultnet.register_link_provider(function(pos, _, def)
 	if def.role ~= "relay" then return nil end
+	if not vaultnet.is_powered(pos) then return nil end -- an unpowered relay links nothing
 	local partners = R.partners(pos)
 	local out, stale = {}, {}
 	for _, p in ipairs(partners) do
 		local n = core.get_node_or_nil(p)
 		if n and not is_relay(n.name) then
 			stale[#stale + 1] = p       -- the relay at that position is gone
+		elseif n and not vaultnet.is_powered(p) then
+			-- unpowered partner: no link
 		else
 			out[#out + 1] = p           -- (an unloaded partner just leaves the scan incomplete)
 		end
@@ -74,6 +77,7 @@ end)
 local function describe(pos)
 	local meta = core.get_meta(pos)
 	local name = meta:get_string("relay_name")
+	if not vaultnet.is_powered(pos) then return "VaultNet Wireless Relay\nNo power" end
 	if name == "" then return "VaultNet Wireless Relay\nNot named yet (right-click)" end
 	local partners = R.partners(pos)
 	local loaded = 0
@@ -226,6 +230,9 @@ end
 
 register(IDLE, "VaultNet Wireless Relay", "vaultnet_wireless_relay.png", {
 	role = "relay",
+	consumes_power = true,
+	-- an unpowered relay does not pass the network on (neither cables nor the link)
+	conducts = function(pos) return vaultnet.is_powered(pos) end,
 	active_variant = ACTIVE,
 })
 
@@ -234,6 +241,8 @@ register(ACTIVE, "VaultNet Wireless Relay (active)", {
 	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
 }, {
 	role = "relay",
+	consumes_power = true,
+	conducts = function(pos) return vaultnet.is_powered(pos) end,
 	inactive_variant = IDLE,
 }, {
 	drop = IDLE,

@@ -5,14 +5,21 @@
 # Minetest Game in ~/.minetest/games (or set GAMES_DIR).
 #
 #   tools/run_tests.sh            uses LUANTI or ~/games/luanti-5.17.0/bin/luanti
+#   tools/run_tests.sh --power    the same with vaultnet_require_power on (standalone backend)
 set -e
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 LUANTI="${LUANTI:-$HOME/games/luanti-5.17.0/bin/luanti}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+POWER=0
+[ "$1" = "--power" ] && POWER=1
+
 mkdir -p "$WORK/world/worldmods"
-for mod in "$HERE"/vaultnet_*/; do ln -s "${mod%/}" "$WORK/world/worldmods/$(basename "$mod")"; done
+for mod in "$HERE"/vaultnet_*/; do
+  case "$(basename "$mod")" in vaultnet_power_technic|vaultnet_power_techage) continue ;; esac
+  ln -s "${mod%/}" "$WORK/world/worldmods/$(basename "$mod")"
+done
 cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
 {
   echo "gameid = minetest_game"
@@ -21,10 +28,11 @@ cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
   echo "auth_backend = sqlite3"
   echo "mod_storage_backend = sqlite3"
   echo "world_name = vaultnet_tests"
-  for m in "$HERE"/vaultnet_*/; do echo "load_mod_$(basename "$m") = true"; done
+  for m in "$WORK"/world/worldmods/vaultnet_*/; do echo "load_mod_$(basename "$m") = true"; done
   echo "load_mod_vntest = true"
 } > "$WORK/world/world.mt"
 echo "mg_name = singlenode" > "$WORK/minetest.conf"
+[ "$POWER" = 1 ] && echo "vaultnet_require_power = true" >> "$WORK/minetest.conf"
 
 timeout 180 "$LUANTI" --server --world "$WORK/world" --gameid minetest_game --port 30777 \
     --config "$WORK/minetest.conf" --logfile "$WORK/server.log" > "$WORK/out.txt" 2>&1 || true

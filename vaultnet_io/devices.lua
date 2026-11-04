@@ -232,6 +232,7 @@ local function run(pos, node)
 	if not net or net:status() ~= "ok" then
 		return set_info(pos, kind, "Network offline")
 	end
+	if not vaultnet.is_powered(pos) then return set_info(pos, kind, "No power") end
 	local tpos = target_pos(pos, node)
 	if not core.get_node_or_nil(tpos) then return end
 	local lists_set = get_lists_set(meta)
@@ -500,6 +501,7 @@ local function register(kind, suffix, active)
 		drop = item,
 		vaultnet = {
 			role = kind,
+			consumes_power = true,
 			active_variant = not active and node_name(kind, suffix, true) or nil,
 			inactive_variant = active and node_name(kind, suffix, false) or nil,
 		},

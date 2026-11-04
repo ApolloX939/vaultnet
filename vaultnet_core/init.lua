@@ -178,6 +178,7 @@ local function register(name, desc, tile, extra)
 		groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1},
 		vaultnet = {
 			role = "core",
+			consumes_power = true,
 			active_variant = ACTIVE,
 			inactive_variant = IDLE,
 			-- two cores on one network: both turn red
@@ -282,6 +283,10 @@ local function build(pos, name)
 		("label[0.4,2.1;Network: %d devices, storage %d / %d items]"):format(
 			net and net.count or 0, used, cap),
 	}
+	if vaultnet.require_power and vaultnet.power_info and net then
+		local info = vaultnet.power_info(net)
+		fs[#fs + 1] = ("label[0.4,2.55;Power: %d supplied / %d needed]"):format(info.supply, info.demand)
+	end
 
 	if can_admin then
 		fs[#fs + 1] = "label[0.4,2.9;Player access]"
@@ -376,13 +381,6 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 end)
 
 core.register_on_leaveplayer(function(player) contexts[player:get_player_name()] = nil end)
-
--- PLACEHOLDER power: with vaultnet_require_power on and no vaultnet_power mod
--- yet, nothing would ever count as powered. Treat everything as powered so the
--- toggle cable can be tested. Remove when vaultnet_power exists.
-if vaultnet.require_power then
-	vaultnet.register_power_handler(function() return true end)
-end
 
 if core.get_modpath("default") then
 	dofile(modpath .. "/recipes_mtg.lua")
