@@ -198,6 +198,9 @@ function Network:apply_status(status)
 			if target and target ~= node.name then
 				node.name = target
 				core.swap_node(pos, node)
+				-- let the device refresh anything that is not part of the node
+				local tdef = vaultnet.get_def(target)
+				if tdef and tdef.on_swapped then tdef.on_swapped(pos) end
 			end
 		end
 	end

@@ -1,124 +1,150 @@
-"""VaultNet core model + textures. Usage: gen_core_assets.py <mod dir>
-Writes models/vaultnet_core_core.obj and the textures. Needs Pillow.
+"""VaultNet core assets. Usage: gen_core_assets.py <vaultnet_core dir>  (needs Pillow)
 
-One material, one texture per variant (the engine does not reliably give separate
-.obj materials separate textures): each texture is 16 x 32, the metal frame in the
-top 16 rows and the crystal glow in the bottom 16. Frame faces map to the top half,
-crystal faces to the bottom half."""
-import math, os, sys
+The core is a metal cage (connected nodebox: corner blocks, edge bars, and a plug that
+only appears on sides where a cable is) around a floating d12 crystal. The crystal is
+an entity with a mesh, so this writes:
+  models/vaultnet_core_crystal.obj   regular dodecahedron, one texel per facet
+  textures/vaultnet_core_crystal_{idle,active,conflict}.png   strips of 16x16 frames
+  textures/vaultnet_core_housing{,_active,_conflict}.png      cage textures (accent line)
+  textures/vaultnet_core_icon.png    inventory icon
+Facet i samples texel (i, 0) of the crystal texture, brightness baked per facet."""
+import math, os, random, sys
 from PIL import Image
 
 mod = sys.argv[1]
 os.makedirs(f"{mod}/models", exist_ok=True)
 os.makedirs(f"{mod}/textures", exist_ok=True)
+tex = f"{mod}/textures"
+random.seed(11)
 
-# ---- model -------------------------------------------------------------
+# ---- crystal mesh (regular dodecahedron) ----------------------------------------
+phi = (1 + 5 ** 0.5) / 2
+V = []
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        for sz in (-1, 1):
+            V.append((sx, sy, sz))
+for s1 in (-1, 1):
+    for s2 in (-1, 1):
+        V.append((0, s1 / phi, s2 * phi))
+        V.append((s1 / phi, s2 * phi, 0))
+        V.append((s2 * phi, 0, s1 / phi))
+
+def norm(v):
+    l = math.sqrt(sum(c * c for c in v)); return tuple(c / l for c in v)
+def dot(a, b): return sum(x * y for x, y in zip(a, b))
+def cross(a, b): return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
+def sub(a, b): return tuple(x - y for x, y in zip(a, b))
+
+# face normals = icosahedron vertices
+normals = []
+for s1 in (-1, 1):
+    for s2 in (-1, 1):
+        normals.append(norm((0, s1 * phi, s2)))
+        normals.append(norm((s1 * phi, s2, 0)))
+        normals.append(norm((s2, 0, s1 * phi)))
+assert len(normals) == 12
+
+R_WORLD = 0.20                                  # circumradius in node units
+SCALE = R_WORLD / math.sqrt(3)
+
+L = norm((-0.4, 0.8, 0.45))
 verts, uvs, norms, faces = [], [], [], []
-
-AH = 32  # atlas height in texels
-frame_uv = lambda u, v: (u, 0.5 + v * 0.5)   # top half
-glow_uv = lambda u, v: (u, v * 0.5)          # bottom half
-
 def idx(lst, v):
     v = tuple(round(c, 5) for c in v)
-    if v not in lst:
-        lst.append(v)
+    if v not in lst: lst.append(v)
     return lst.index(v) + 1
 
-def add_face(mat, pts, uv, n):
-    uv = [(frame_uv if mat == "frame" else glow_uv)(*t) for t in uv]
-    ids = [(idx(verts, p), idx(uvs, t), idx(norms, n)) for p, t in zip(pts, uv)]
-    faces.append(ids)
+facet_light = []
+for i, n in enumerate(normals):
+    best = max(dot(v, n) for v in V)
+    face = [v for v in V if abs(dot(v, n) - best) < 1e-6]
+    assert len(face) == 5, len(face)
+    c = tuple(sum(v[k] for v in face) / 5 for k in range(3))
+    u_axis = norm(sub(face[0], c))
+    w_axis = cross(n, u_axis)
+    face.sort(key=lambda v: math.atan2(dot(sub(v, c), w_axis), dot(sub(v, c), u_axis)))
+    uv = ((i + 0.5) / 16, 1 - 0.5 / 16)
+    pts = [tuple(x * SCALE for x in v) for v in face]
+    for k in range(1, 4):                       # fan triangulation, CCW seen from outside
+        tri = (pts[0], pts[k], pts[k + 1])
+        faces.append([(idx(verts, p), idx(uvs, uv), idx(norms, n)) for p in tri])
+    facet_light.append(0.45 + 0.55 * max(0.0, dot(n, L)) + random.uniform(-0.03, 0.03))
 
-def box(x0, y0, z0, x1, y1, z1):
-    # triplanar UVs: one texture tile per node, so texel density is uniform
-    def q(n, pts, proj):
-        add_face("frame", pts, [proj(p) for p in pts], n)
-    X = lambda p: (p[2] + .5, p[1] + .5)
-    Y = lambda p: (p[0] + .5, p[2] + .5)
-    Z = lambda p: (p[0] + .5, p[1] + .5)
-    q((1, 0, 0), [(x1, y0, z1), (x1, y0, z0), (x1, y1, z0), (x1, y1, z1)], X)
-    q((-1, 0, 0), [(x0, y0, z0), (x0, y0, z1), (x0, y1, z1), (x0, y1, z0)], X)
-    q((0, 1, 0), [(x0, y1, z1), (x1, y1, z1), (x1, y1, z0), (x0, y1, z0)], Y)
-    q((0, -1, 0), [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)], Y)
-    q((0, 0, 1), [(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)], Z)
-    q((0, 0, -1), [(x1, y0, z0), (x0, y0, z0), (x0, y1, z0), (x1, y1, z0)], Z)
-
-H = 0.5
-T = 0.125   # plate thickness
-P = 0.1875  # pillar thickness
-box(-H, -H, -H, H, -H + T, H)            # base plate
-box(-H, H - T, -H, H, H, H)              # top plate
-for sx in (-1, 1):                       # four corner pillars
-    for sz in (-1, 1):
-        x0, x1 = (-H, -H + P) if sx < 0 else (H - P, H)
-        z0, z1 = (-H, -H + P) if sz < 0 else (H - P, H)
-        box(x0, -H + T, z0, x1, H - T, z1)
-
-# glowing octahedron floating in the middle
-R = 0.30
-top, bot = (0, R, 0), (0, -R, 0)
-ring = [(R, 0, 0), (0, 0, R), (-R, 0, 0), (0, 0, -R)]
-for i in range(4):
-    a, b = ring[i], ring[(i + 1) % 4]
-    for apex in (top, bot):
-        pts = [b, a, apex] if apex is top else [a, b, apex]
-        # outward normal
-        u = [pts[1][k] - pts[0][k] for k in range(3)]
-        v = [pts[2][k] - pts[0][k] for k in range(3)]
-        n = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
-        l = math.sqrt(sum(c*c for c in n)); n = tuple(c / l for c in n)
-        add_face("glow", pts, [(0, 0), (1, 0), (.5, 1)], n)
-
-with open(f"{mod}/models/vaultnet_core_core.obj", "w") as f:
-    f.write("# VaultNet core (generated by tools/gen_core_assets.py)\n")
+with open(f"{mod}/models/vaultnet_core_crystal.obj", "w") as f:
+    f.write("# VaultNet core crystal, regular dodecahedron (generated by tools/gen_core_assets.py)\n")
     for v in verts: f.write("v %g %g %g\n" % v)
     for t in uvs: f.write("vt %g %g\n" % t)
     for n in norms: f.write("vn %g %g %g\n" % n)
-    for face in faces:   # one material only
+    for face in faces:                           # one material only
         f.write("f " + " ".join("%d/%d/%d" % t for t in face) + "\n")
 
-# ---- textures ----------------------------------------------------------
-def frame_tex():
+# ---- crystal textures --------------------------------------------------------------
+def crystal_frame(rgb, k):
+    im = Image.new("RGBA", (16, 16), (0, 0, 0, 255))
+    for i, b in enumerate(facet_light):
+        c = tuple(max(0, min(255, int(ch * b * k))) for ch in rgb)
+        im.putpixel((i, 0), c + (255,))
+    return im
+
+def crystal_strip(rgb, ks, name):
+    s = Image.new("RGBA", (16, 16 * len(ks)))
+    for f, k in enumerate(ks):
+        s.paste(crystal_frame(rgb, k), (0, 16 * f))
+    s.save(f"{tex}/vaultnet_core_crystal_{name}.png")
+
+FRAMES = 8
+pulse = [0.7 + 0.3 * math.sin(2 * math.pi * f / FRAMES) for f in range(FRAMES)]
+flash = [1.0, 1.0, 0.35, 0.35, 1.0, 1.0, 0.35, 0.35]
+crystal_strip((0x50, 0x68, 0x80), [0.8], "idle")
+crystal_strip((0x30, 0xa0, 0xff), pulse, "active")
+crystal_strip((0xff, 0x28, 0x28), flash, "conflict")
+
+# ---- housing textures ----------------------------------------------------------------
+def housing(accent, k=1.0):
     im = Image.new("RGBA", (16, 16))
     for y in range(16):
         for x in range(16):
-            c = (0x3a, 0x3e, 0x48)
-            if x in (0, 15) or y in (0, 15): c = (0x22, 0x24, 0x2b)
-            elif x in (1, 14) or y in (1, 14): c = (0x4c, 0x51, 0x5c)
-            elif (x + y) % 6 == 0: c = (0x44, 0x49, 0x54)
+            g = 0x44 + random.choice((-3, 0, 0, 3))
+            c = (g, g, g + 6)
+            if x in (0, 15) or y in (0, 15):
+                c = (0x22, 0x24, 0x2b)                       # outer edge
+            elif x in (1, 14) or y in (1, 14):
+                c = tuple(int(a * k) for a in accent)         # accent line along the bars
             im.putpixel((x, y), c + (255,))
     return im
 
-def glow_frame(rgb, f, frames, flash=False):
-    """Pulsing crystal: bright rings drifting from the base to the tip."""
-    im = Image.new("RGBA", (16, 16))
-    for y in range(16):
-        for x in range(16):
-            if flash:
-                k = 1.0 if f % 2 == 0 else 0.35
-                k *= 0.85 + 0.15 * math.sin(y * .8)
-            else:
-                phase = (y / 16 - f / frames) * 2 * math.pi
-                k = 0.55 + 0.45 * math.sin(phase)
-                k *= 1.0 - 0.35 * abs(x - 7.5) / 7.5
-            im.putpixel((x, y), tuple(min(255, int(c * k)) for c in rgb) + (255,))
-    return im
+def housing_strip(accent, ks, name):
+    s = Image.new("RGBA", (16, 16 * len(ks)))
+    for f, k in enumerate(ks):
+        random.seed(5)                                          # same metal in every frame
+        s.paste(housing(accent, k), (0, 16 * f))
+    s.save(f"{tex}/{name}")
 
-def atlas(glow_img):
-    """16 x 32: frame on top, glow below."""
-    im = Image.new("RGBA", (16, AH))
-    im.paste(frame_tex(), (0, 0))
-    im.paste(glow_img, (0, 16))
-    return im
+random.seed(5)
+housing((0x30, 0x38, 0x44)).save(f"{tex}/vaultnet_core_housing.png")
+housing_strip((0x30, 0xa0, 0xff), pulse, "vaultnet_core_housing_active.png")
+housing_strip((0xff, 0x28, 0x28), flash, "vaultnet_core_housing_conflict.png")
 
-def strip(rgb, frames, flash, path):
-    s = Image.new("RGBA", (16, AH * frames))
-    for f in range(frames):
-        s.paste(atlas(glow_frame(rgb, f, frames, flash)), (0, AH * f))
-    s.save(path)
-
-# idle: dim, static
-atlas(glow_frame((0x30, 0x40, 0x50), 0, 1)).save(f"{mod}/textures/vaultnet_core_core.png")
-strip((0x30, 0xa0, 0xff), 16, False, f"{mod}/textures/vaultnet_core_core_active.png")
-strip((0xff, 0x28, 0x28), 4, True, f"{mod}/textures/vaultnet_core_core_conflict.png")
+# ---- inventory icon: crystal in a corner cage ------------------------------------------
+icon = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+metal, dark = (0x5a, 0x5f, 0x6b), (0x22, 0x24, 0x2b)
+for (x0, y0) in ((1, 1), (11, 1), (1, 11), (11, 11)):          # corner blocks
+    for x in range(x0, x0 + 4):
+        for y in range(y0, y0 + 4):
+            edge = x in (x0, x0 + 3) or y in (y0, y0 + 3)
+            icon.putpixel((x, y), (dark if edge else metal) + (255,))
+for x in range(5, 11):                                          # edge bars (top and bottom)
+    for y in (1, 2, 13, 14):
+        icon.putpixel((x, y), metal + (255,))
+for y in range(5, 11):
+    for x in (1, 2, 13, 14):
+        icon.putpixel((x, y), metal + (255,))
+cx = cy = 7.5
+for y in range(16):                                             # crystal: a faceted blob
+    for x in range(16):
+        d = math.hypot(x - cx, y - cy)
+        if d < 3.6:
+            k = 0.7 + 0.5 * (1 - (x - cx) / 6 - (y - cy) / 6) / 2
+            icon.putpixel((x, y), tuple(max(0, min(255, int(c * k))) for c in (0x30, 0xa0, 0xff)) + (255,))
+icon.save(f"{tex}/vaultnet_core_icon.png")

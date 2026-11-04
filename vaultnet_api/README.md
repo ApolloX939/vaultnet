@@ -17,6 +17,7 @@ core.register_node("mymod:thing", {
         can_connect = function(pos, node, dir) return true end,-- optional
         active_variant = "mymod:thing_active",   -- optional, for Network:apply_active(true)
         inactive_variant = "mymod:thing",        -- optional, for Network:apply_active(false)
+        on_swapped = function(pos) end,         -- optional, called after apply_status swapped this node to this variant
         variants = {multiple_cores = "mymod:thing_red"}, -- optional, per net:status() value
         get_drive_slots = function(pos) return vaultnet.inv_slots(pos, "drives") end, -- bays
         on_drives_changed = function(pos) end,   -- bays: refresh visuals
