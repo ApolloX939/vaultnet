@@ -54,6 +54,9 @@ local function save(stack, data)
 	meta:set_string(KEY, core.serialize({v = 2, items = items, used = data.used, types = data.types}))
 	meta:set_string("description", (idef.description or stack:get_name()) ..
 		"\n" .. data.used .. " / " .. def.capacity .. " items")
+	-- Mods that turn items into another currency (EMC) look at this flag: a drive with
+	-- contents is worth more than the empty drive and would be destroyed by a conversion.
+	meta:set_string("no_emc", data.used > 0 and "true" or "")
 	-- Optional per-state look: def.state_image(state) -> texture string.
 	if def.state_image then
 		local state = D.state_of(def, data)
@@ -61,6 +64,18 @@ local function save(stack, data)
 		meta:set_string("inventory_image", img)
 		meta:set_string("wield_image", img)
 	end
+end
+
+-- Make the no_emc flag match the contents (drives written before the flag existed).
+-- Mutates the stack; returns true when it changed.
+function D.sync_flags(stack)
+	local def = drive_def(stack)
+	if not def then return false end
+	local want = load(stack).used > 0 and "true" or ""
+	local meta = stack:get_meta()
+	if meta:get_string("no_emc") == want then return false end
+	meta:set_string("no_emc", want)
+	return true
 end
 
 function D.info(stack)

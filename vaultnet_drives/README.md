@@ -8,6 +8,8 @@ Ten drive tiers (`vaultnet_drives:drive1` .. `drive10`): Tiny 1k, Mini 2k, Small
 - Fullness light: the inventory/wield image gets a green -> red light overlay
   (5 states) that is refreshed whenever the contents change.
 - Drives cannot be stored inside drives.
+- A drive with contents carries the `no_emc` meta flag (kept in step by the drive code, repaired for older drives when
+  their owner joins or the bay refreshes), so EMC mods do not convert it and destroy its contents.
 - Capacity per tier is a setting (`settingtypes.txt`). There is no limit on distinct item kinds.
 - Drives only work inside a drive host, i.e. the drive bay.
 

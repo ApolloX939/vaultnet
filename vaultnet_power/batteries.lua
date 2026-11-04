@@ -57,6 +57,9 @@ for _, t in ipairs(TIERS) do
 					local meta = drops[1]:get_meta()
 					meta:set_string("charge", tostring(charge))
 					meta:set_string("description", describe(t, charge))
+					-- a charged battery is worth more than an empty one: keep EMC mods from
+					-- converting (and so destroying) the charge
+					meta:set_string("no_emc", "true")
 				end
 			end,
 		})

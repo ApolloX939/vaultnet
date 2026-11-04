@@ -310,6 +310,25 @@ local function main_normal()
 		.. bayinv:get_stack("drives", 4):get_meta():get_string("inventory_image")):find("light") ~= nil)
 	check("drive: cannot be stored in a drive", select(2, net:insert(ItemStack("vaultnet_drives:drive2"))) == "not_storable")
 
+	-- no_emc: drives with contents are protected from EMC conversion, empty ones are not
+	do
+		local d = ItemStack("vaultnet_drives:drive3")
+		check("no_emc: a new empty drive is convertible", d:get_meta():get_string("no_emc") == "")
+		vaultnet.drive.add(d, ItemStack("default:dirt 4"))
+		check("no_emc: a drive with contents is flagged", d:get_meta():get_string("no_emc") == "true")
+		vaultnet.drive.take(d, vaultnet.item_key(ItemStack("default:dirt")), 4)
+		check("no_emc: emptied again -> flag cleared", d:get_meta():get_string("no_emc") == "")
+		-- a legacy drive (contents, no flag) is fixed by sync_flags
+		local legacy = ItemStack("vaultnet_drives:drive1")
+		vaultnet.drive.add(legacy, ItemStack("default:dirt 2"))
+		legacy:get_meta():set_string("no_emc", "")
+		check("no_emc: sync_flags repairs a legacy drive", vaultnet.drive.sync_flags(legacy) and legacy:get_meta():get_string("no_emc") == "true")
+		check("no_emc: sync_flags is a no-op when right", not vaultnet.drive.sync_flags(legacy))
+		-- drives held by a bay are flagged by the net operations that fill them
+		check("no_emc: the bay's stored drive is flagged after storage", bayinv:get_stack("drives", 1):get_meta():get_string("no_emc") == "true"
+			or bayinv:get_stack("drives", 4):get_meta():get_string("no_emc") == "true")
+	end
+
 	-- access
 	local acc = vaultnet.access
 	check("access: owner can pull", acc.can(P.core, "tester", "pull"))
@@ -636,6 +655,16 @@ local function main_power()
 		check("battery: not enough charge -> unpowered", n:status() == "unpowered", n:status())
 		-- rate limit: small battery (20/s) cannot cover 25 units of demand
 		-- surplus charges it: burn a generator
+		-- a charged battery's drop carries no_emc, an empty one's does not
+		core.get_meta(bat):set_float("charge", 25)
+		local nodedef = core.registered_nodes[core.get_node(bat).name]
+		local drops = {ItemStack("vaultnet_power:battery_medium_0")}
+		nodedef.preserve_metadata(bat, core.get_node(bat), {charge = "25"}, drops)
+		check("no_emc: a charged battery item is flagged", drops[1]:get_meta():get_string("no_emc") == "true"
+			and drops[1]:get_meta():get_string("charge") == "25")
+		local empty = {ItemStack("vaultnet_power:battery_medium_0")}
+		nodedef.preserve_metadata(bat, core.get_node(bat), {charge = "0"}, empty)
+		check("no_emc: an empty battery item is not flagged", empty[1]:get_meta():get_string("no_emc") == "")
 		core.get_meta(bat):set_float("charge", 0)
 		core.get_meta(P.gen):set_int("burn_left", 100)
 		n.power_cache = nil; n.power_last_t = core.get_gametime() - 1

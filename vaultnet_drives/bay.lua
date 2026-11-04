@@ -96,6 +96,11 @@ local function update_visuals(pos)
 	local front = {x = -back.x, y = 0, z = -back.z}
 	local yaw = core.dir_to_yaw(front) + YAW_OFFSET
 
+	for i = 1, BAY_SLOTS do
+		local stack = inv:get_stack("drives", i)
+		if not stack:is_empty() and drive.sync_flags(stack) then inv:set_stack("drives", i, stack) end
+	end
+
 	local have = {}
 	for _, obj in ipairs(core.get_objects_inside_radius(pos, 1.0)) do
 		local e = obj:get_luaentity()

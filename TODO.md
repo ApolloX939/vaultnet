@@ -121,7 +121,7 @@
       neither do most VaultNet items (45 visible items, 40 unpriced as of now). Options: add `base_items/techage.lua` to the EMC
       mod (steel/bronze chain, aluminum, ...) or give the base items fallback values from `vaultnet_components/emc.lua`
       when they are unpriced (that fallback existed briefly and was removed to cover Technic only for now)
-- [ ] Decide how EMC should treat drives with contents and charged batteries (the EMC mod prices by item name only)
+- [x] Drives with contents and charged batteries carry the `no_emc` flag (the EMC mod's tablet honors it); the EMC Link does not check it - could be raised upstream
 - [ ] Balance pass in game (are the costs reasonable?) and per-game recipe files for Mineclonia / VoxeLibre / Hades / Skyblock Zero
 
 ## Machine recipe parity with Technic (standalone `vaultnet_machines`)

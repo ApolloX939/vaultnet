@@ -32,8 +32,11 @@ Technic. To keep those values stable, `emc.lua` (loaded only when that mod is pr
 **own** recipes after the solver has run, and everything built from them on top: a Technic/Techage alternative recipe would
 otherwise win or lose depending on solver order (a capacitor from a Technic battery would cost 13x less).
 
+Drives that hold items and batteries that hold charge carry the `no_emc = "true"` item meta flag, which the EMC mod's
+transmutation tablet honors, so converting one can not destroy its contents or charge (an empty drive or battery is still
+convertible at its normal value). The EMC Link does not check the flag.
+
 Not covered yet: **Techage worlds** (the EMC mod does not know Techage's iron/bronze chain, so steel and bronze, and with
-them most VaultNet items, stay unpriced) - see `TODO.md`. Also, the EMC mod prices an item by name only, so a drive full of
-items or a charged battery is worth just the empty drive/battery and transmuting it destroys the contents.
+them most VaultNet items, stay unpriced) - see `TODO.md`.
 
 `tools/run_tests.sh --emc` (with `EMC_DIR` set to a clone of the EMC mod) checks it; combine with `--technic` or `--power`.

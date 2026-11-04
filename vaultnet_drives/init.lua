@@ -39,6 +39,18 @@ for i, tier in ipairs(TIERS) do
 	})
 end
 
+-- Drives made before the no_emc flag existed get it when their owner joins.
+core.register_on_joinplayer(function(player)
+	local inv = player:get_inventory()
+	for listname, list in pairs(inv:get_lists()) do
+		for i, stack in ipairs(list) do
+			if not stack:is_empty() and vaultnet.drive.sync_flags(stack) then
+				inv:set_stack(listname, i, stack)
+			end
+		end
+	end
+end)
+
 dofile(modpath .. "/bay.lua")
 
 if core.get_modpath("default") then
