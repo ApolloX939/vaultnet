@@ -74,6 +74,68 @@ local function static_checks()
 	local list = {}
 	for k in pairs(missing) do list[#list + 1] = k end
 	check("static: media of " .. n .. " nodes/items exists", #list == 0, table.concat(list, ", "))
+	-- recipes: every visible VaultNet item is craftable from real items, with no cycles
+	do
+		local function ingredients(recipe)
+			local out = {}
+			for _, it in pairs(recipe.items) do
+				if it ~= "" then out[#out + 1] = it end
+			end
+			return out
+		end
+		local recipes, visible = {}, {}
+		local function scan(reg)
+			for name, def in pairs(reg) do
+				if name:match("^vaultnet_") then
+					recipes[name] = core.get_all_craft_recipes(name) or {}
+					if (def.groups or {}).not_in_creative_inventory ~= 1 then visible[#visible + 1] = name end
+				end
+			end
+		end
+		scan(core.registered_nodes); scan(core.registered_craftitems)
+		table.sort(visible)
+		local uncraftable, unknown = {}, {}
+		for _, name in ipairs(visible) do
+			if #recipes[name] == 0 then uncraftable[#uncraftable + 1] = name end
+			for _, r in ipairs(recipes[name]) do
+				for _, ing in ipairs(ingredients(r)) do
+					if not ing:match("^group:") and not core.registered_items[ing] and not core.registered_aliases[ing] then
+						unknown[#unknown + 1] = name .. " needs " .. ing
+					end
+				end
+			end
+		end
+		check("recipes: all " .. #visible .. " visible items have a recipe", #uncraftable == 0, table.concat(uncraftable, ", "))
+		check("recipes: every ingredient is a real item", #unknown == 0, table.concat(unknown, "; "))
+		-- buildable from base items (fixed point), which also rules out cycles
+		local buildable = {}
+		local function ok(ing)
+			if ing:match("^group:") then return true end
+			if ing:match("^vaultnet_") then return buildable[ing] end
+			return true
+		end
+		local changed = true
+		while changed do
+			changed = false
+			for name, list in pairs(recipes) do
+				if not buildable[name] then
+					for _, r in ipairs(list) do
+						local all = true
+						for _, ing in ipairs(ingredients(r)) do if not ok(ing) then all = false break end end
+						if all then buildable[name] = true; changed = true; break end
+					end
+				end
+			end
+		end
+		local stuck = {}
+		for _, name in ipairs(visible) do if not buildable[name] then stuck[#stuck + 1] = name end end
+		check("recipes: every visible item can be built from base items (no cycles)", #stuck == 0, table.concat(stuck, ", "))
+		-- components are used: the casing has the optional alternatives when those mods are present
+		local casing = #recipes["vaultnet_components:casing"]
+		local want = 1 + (core.get_modpath("technic") and 1 or 0) + (core.get_modpath("techage") and 1 or 0)
+		check("recipes: casing has its own recipe plus one per installed Technic/Techage", casing == want, casing .. " vs " .. want)
+	end
+
 	for _, e in ipairs({"vaultnet_drives:bay_drive", "vaultnet_core:crystal"}) do
 		local def = core.registered_entities[e]
 		check("static: entity registered " .. e, def ~= nil)

@@ -84,13 +84,14 @@ core.register_abm({
 })
 
 if core.get_modpath("default") then
-	local S, C = "default:steel_ingot", "default:copper_ingot"
+	local S = "default:steel_ingot"
+	local V = function(n) return "vaultnet_components:" .. n end
 	core.register_craft({
 		output = IDLE,
 		recipe = {
 			{S, "techage:electric_cableS", S},
-			{C, "default:mese_crystal", C},
-			{S, "techage:electric_cableS", S},
+			{V"coil", V"coupler", V"coil"},
+			{S, V"circuit", S},
 		},
 	})
 end

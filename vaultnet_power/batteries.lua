@@ -87,17 +87,18 @@ core.register_abm({
 })
 
 if core.get_modpath("default") then
-	local S, C = "default:steel_ingot", "default:copper_ingot"
+	local S, C, D = "default:steel_ingot", "default:copper_ingot", "default:diamond"
+	local V = function(n) return "vaultnet_components:" .. n end
 	core.register_craft({
 		output = node_name(TIERS[1], 0),
-		recipe = {{S, C, S}, {S, "default:mese_crystal_fragment", S}, {S, C, S}},
+		recipe = {{S, V"capacitor", S}, {C, V"capacitor", C}, {S, S, S}},
 	})
 	core.register_craft({
 		output = node_name(TIERS[2], 0),
-		recipe = {{S, C, S}, {C, "default:mese_crystal", C}, {S, C, S}},
+		recipe = {{V"capacitor", V"circuit", V"capacitor"}, {V"casing", V"capacitor", V"casing"}, {S, S, S}},
 	})
 	core.register_craft({
 		output = node_name(TIERS[3], 0),
-		recipe = {{C, "default:diamond", C}, {S, "default:mese", S}, {C, "default:diamond", C}},
+		recipe = {{V"capacitor", V"processor", V"capacitor"}, {V"capacitor", V"casing", V"capacitor"}, {V"casing", D, V"casing"}},
 	})
 end

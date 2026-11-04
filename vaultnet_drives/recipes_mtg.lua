@@ -1,30 +1,38 @@
--- Minetest Game recipes. Tiers are crafted from raw materials (never from a
--- lower drive) so no stored contents can be lost in a craft.
--- Layout: {X, glass, X} / {steel, core, steel} / {steel, copper, steel}
+-- Minetest Game recipes. Tiers are crafted from components and raw materials (never
+-- from a lower drive) so no stored contents can be lost in a craft.
+--   {S, top, S}
+--   {S, cell, S}
+--   {X, casing, Y}
+-- top: glass -> circuit -> processor as the tiers grow; the cell grade grows every few
+-- tiers; X and Y climb from copper through gold, mese and diamond to the blocks.
 
-local S, G, C = "default:steel_ingot", "default:glass", "default:copper_ingot"
+local S, G = "default:steel_ingot", "default:glass"
+local V = function(n) return "vaultnet_components:" .. n end
 
--- {X, core} per tier
+local C, GOLD = "default:copper_ingot", "default:gold_ingot"
+local CR, D = "default:mese_crystal", "default:diamond"
+local MB, DB = "default:mese", "default:diamondblock"
+
 local TIERS = {
-	{S, "default:mese_crystal_fragment"},
-	{"default:bronze_ingot", "default:mese_crystal_fragment"},
-	{S, "default:mese_crystal"},
-	{"default:bronze_ingot", "default:mese_crystal"},
-	{"default:gold_ingot", "default:mese_crystal"},
-	{"default:gold_ingot", "default:diamond"},
-	{"default:mese_crystal", "default:diamond"},
-	{"default:diamond", "default:mese"},
-	{"default:mese", "default:diamondblock"},
-	{"default:diamondblock", "default:mese"},
+	{G, V"cell_1", C, C},
+	{G, V"cell_1", C, GOLD},
+	{G, V"cell_1", GOLD, GOLD},
+	{V"circuit", V"cell_2", GOLD, CR},
+	{V"circuit", V"cell_2", CR, CR},
+	{V"circuit", V"cell_2", CR, D},
+	{V"processor", V"cell_3", D, D},
+	{V"processor", V"cell_3", D, MB},
+	{V"processor", V"cell_3", MB, DB},
+	{V"processor", V"cell_4", DB, DB},
 }
 
 for i, t in ipairs(TIERS) do
 	core.register_craft({
 		output = "vaultnet_drives:drive" .. i,
 		recipe = {
-			{t[1], G, t[1]},
+			{S, t[1], S},
 			{S, t[2], S},
-			{S, C, S},
+			{t[3], V"casing", t[4]},
 		},
 	})
 end
@@ -32,8 +40,8 @@ end
 core.register_craft({
 	output = "vaultnet_drives:bay",
 	recipe = {
-		{S, S, S},
-		{C, "default:mese_crystal", C},
-		{S, S, S},
+		{S, V"circuit", S},
+		{V"actuator", V"casing", V"actuator"},
+		{S, V"circuit", S},
 	},
 })

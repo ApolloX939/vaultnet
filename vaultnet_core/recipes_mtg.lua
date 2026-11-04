@@ -1,12 +1,12 @@
 -- Minetest Game recipes.
 
-local S, M, D = "default:steel_ingot", "default:mese_crystal", "default:diamond"
+local V = function(n) return "vaultnet_components:" .. n end
 
 core.register_craft({
 	output = "vaultnet_core:core",
 	recipe = {
-		{S, M, S},
-		{M, D, M},
-		{S, M, S},
+		{V"casing", V"processor", V"casing"},
+		{V"circuit", V"resonator", V"circuit"},
+		{V"casing", V"processor", V"casing"},
 	},
 })

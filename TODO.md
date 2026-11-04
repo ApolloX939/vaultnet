@@ -15,6 +15,8 @@
 - [ ] Skyblock Zero (later)
 
 ## Modpack Layout (sub mods)
+- [x] `vaultnet_components`: craft items every device is built from (own recipes; optional Technic/Techage alternatives)
+- [x] `vaultnet_machines`: network-fed Smelter, Grinder, Compressor and Alloy Furnace (optional)
 - [x] `vaultnet_api`: shared network graph, item storage API, metadata-safe serialization
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
 - [x] `vaultnet_drives`: drives and the drive bay
@@ -105,6 +107,15 @@
 - [x] One job per machine (ghost input slots), inputs from and results to the network, idle/working power draw
 - [x] Recipe registry, Minetest Game basics, Technic grinding/compressing/alloy recipes imported when present
 
+## Recipes and components
+- [x] Components: wire, coil, casing, circuit, processor, actuator, storage cells I-IV, transceiver, resonator, capacitor, coupler
+- [x] Every device (cables, core, drives, bay, terminal, I/O, autocrafter, relay, generator, solar, batteries, adapters, machines)
+      needs components; drives climb through cell grades I-IV and circuit/processor tiers
+- [x] Optional alternatives: Technic (lv_cable, copper_coil, machine_casing, control_logic_unit, battery, lv_transformer) and
+      Techage (aluminum, ta4_ramchip, ta4_wlanchip, ta5_controlunit) components can stand in for the first steps
+- [x] Test: every visible item craftable from real items, buildable from base items (no cycles)
+- [ ] Balance pass in game (are the costs reasonable?) and per-game recipe files for Mineclonia / VoxeLibre / Hades / Skyblock Zero
+
 ## Machine recipe parity with Technic (standalone `vaultnet_machines`)
 Goal: the Grinder, Compressor and Alloy Furnace offer the same recipes as Technic's grinder, compressor and
 alloy furnace. With `technic` installed we use Technic's recipes and items (already imported at startup);
@@ -188,6 +199,6 @@ and `grindings.lua`.
 
 ## Docs and Polish
 - [ ] README for the modpack and for each sub mod
-- [ ] Crafting recipes for all parts that use only base-game items
+- [x] Crafting recipes for all parts: built from VaultNet components (`vaultnet_components`), which themselves use only base-game items; optional alternatives accept Technic/Techage components
 - [ ] Textures and models (cables, drives, bay, core, I/O, relay)
 - [x] Testing: metadata round-trip, power on/off, relay forceload (`tools/run_tests.sh`, headless; multi-player access is only covered at API level)

@@ -1,13 +1,14 @@
 -- Minetest Game recipes.
 
-local S, G, C = "default:steel_ingot", "default:glass", "default:copper_ingot"
+local S, G = "default:steel_ingot", "default:glass"
+local V = function(n) return "vaultnet_components:" .. n end
 
 core.register_craft({
 	output = "vaultnet_power:generator",
 	recipe = {
-		{S, S, S},
-		{C, "default:furnace", C},
-		{S, "default:mese_crystal_fragment", S},
+		{V"casing", V"coupler", V"casing"},
+		{V"coil", "default:furnace", V"coil"},
+		{S, V"circuit", S},
 	},
 })
 
@@ -15,7 +16,7 @@ core.register_craft({
 	output = "vaultnet_power:solar",
 	recipe = {
 		{G, G, G},
-		{C, "default:mese_crystal", C},
-		{S, S, S},
+		{V"circuit", V"circuit", V"circuit"},
+		{V"coil", V"coupler", V"coil"},
 	},
 })

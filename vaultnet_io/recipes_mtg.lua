@@ -1,31 +1,32 @@
 -- Minetest Game recipes.
 
-local S, G, C = "default:steel_ingot", "default:glass", "default:copper_ingot"
+local S, G = "default:steel_ingot", "default:glass"
+local V = function(n) return "vaultnet_components:" .. n end
 
 core.register_craft({
 	output = "vaultnet_io:terminal",
 	recipe = {
-		{S, S, S},
-		{G, "default:mese_crystal_fragment", G},
-		{S, C, S},
+		{G, G, G},
+		{V"circuit", V"processor", V"circuit"},
+		{S, V"casing", S},
 	},
 })
 
 core.register_craft({
 	output = "vaultnet_io:inserter",
 	recipe = {
-		{S, "default:mese_crystal_fragment", S},
-		{C, "default:chest", C},
-		{S, S, S},
+		{S, V"circuit", S},
+		{V"wire", V"actuator", V"wire"},
+		{S, V"casing", S},
 	},
 })
 
 core.register_craft({
 	output = "vaultnet_io:exporter",
 	recipe = {
-		{S, S, S},
-		{C, "default:chest", C},
-		{S, "default:mese_crystal_fragment", S},
+		{S, V"casing", S},
+		{V"wire", V"actuator", V"wire"},
+		{S, V"circuit", S},
 	},
 })
 
@@ -33,11 +34,11 @@ core.register_craft({
 core.register_craft({
 	type = "shapeless",
 	output = "vaultnet_io:requester",
-	recipe = {"vaultnet_io:exporter", "default:mese_crystal_fragment", "default:paper"},
+	recipe = {"vaultnet_io:exporter", V"processor"},
 })
 
 core.register_craft({
 	type = "shapeless",
 	output = "vaultnet_io:supplier",
-	recipe = {"vaultnet_io:inserter", "default:mese_crystal_fragment", "default:paper"},
+	recipe = {"vaultnet_io:inserter", V"processor"},
 })
