@@ -139,12 +139,19 @@ def Z(p): return (p - 8) / 16.0          # z px: 0 = front face (-Z side), 16 = 
 HOLE_X = [(1, 7), (9, 15)]
 HOLE_Y = [(0.5 + 4 * i, 3.5 + 4 * i) for i in range(4)]
 boxes = [(X(0), X(0), Z(2), X(16), X(16), Z(16), "frame", {"-z": ("slot",)})]
+# Faces that look into a hole (the hole walls) get the dark "slot" material too,
+# so the slots read as dark recesses from any angle.
 bars = [(0, 0.5), (3.5, 4.5), (7.5, 8.5), (11.5, 12.5), (15.5, 16)]
-for y0, y1 in bars:
-    boxes.append((X(0), X(y0), Z(0), X(16), X(y1), Z(2), "frame", {}))
+for n, (y0, y1) in enumerate(bars):
+    over = {}
+    if n > 0: over["-y"] = ("slot",)          # ceiling of the hole below
+    if n < len(bars) - 1: over["+y"] = ("slot",)   # floor of the hole above
+    boxes.append((X(0), X(y0), Z(0), X(16), X(y1), Z(2), "frame", over))
 for y0, y1 in HOLE_Y:
-    for x0, x1 in ((0, 1), (7, 9), (15, 16)):
-        boxes.append((X(x0), X(y0), Z(0), X(x1), X(y1), Z(2), "frame", {}))
+    for x0, x1, over in ((0, 1, {"+x": ("slot",)}),
+                         (7, 9, {"-x": ("slot",), "+x": ("slot",)}),
+                         (15, 16, {"-x": ("slot",)})):
+        boxes.append((X(x0), X(y0), Z(0), X(x1), X(y1), Z(2), "frame", over))
 build(f"{mod}/models/vaultnet_drives_bay.obj", "VaultNet drive bay", ["frame", "slot"],
       boxes)
 

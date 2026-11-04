@@ -38,7 +38,8 @@ core.register_entity(ENT, {
 	initial_properties = {
 		visual = "mesh",
 		mesh = "vaultnet_drives_disk.obj",
-		visual_size = {x = 1, y = 1},
+		-- entity meshes render at 1/10 of the model size, so 10 = one model unit per node
+		visual_size = {x = 10, y = 10, z = 10},
 		textures = {"blank.png", "blank.png"}, -- {disk, led}
 		physical = false,
 		pointable = false,
