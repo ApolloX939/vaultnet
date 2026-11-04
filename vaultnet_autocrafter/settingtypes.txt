@@ -1,0 +1,5 @@
+# Register the autocrafter. Turn off to play without it (placed autocrafters become unknown nodes).
+vaultnet_autocrafter_enabled (Enable autocrafter) bool true
+
+# Seconds between crafts of one autocrafter.
+vaultnet_autocrafter_interval (Autocrafter interval) float 1.0 0.2 10.0

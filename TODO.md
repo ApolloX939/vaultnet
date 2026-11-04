@@ -20,7 +20,7 @@
 - [x] `vaultnet_drives`: drives and the drive bay
 - [x] `vaultnet_core`: central node, access control formspec
 - [x] `vaultnet_io`: Terminal, Inserter and Exporter
-- [ ] `vaultnet_autocrafter`: autocrafter (opt-in)
+- [x] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [ ] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
 - [ ] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
 - [ ] `vaultnet_power_technic`: adapter for Technic
@@ -63,11 +63,11 @@
 - [x] Inactive texture and animated active texture
 
 ## Autocrafter
-- [ ] Supports normal (shaped) recipes
-- [ ] Supports shapeless recipes
-- [ ] Only recipes that fit the 3x3 crafting grid (no larger grids)
-- [ ] Pulls ingredients from and pushes results to the network
-- [ ] Inactive and active textures
+- [x] Supports normal (shaped) recipes
+- [x] Supports shapeless recipes
+- [x] Only recipes that fit the 3x3 crafting grid (no larger grids)
+- [x] Pulls ingredients from and pushes results to the network
+- [x] Inactive and active textures
 
 ## Cables
 - [x] 3D cables that connect everything
@@ -99,7 +99,7 @@
 ## Config Settings
 - [ ] `require_power` (default false)
 - [ ] Wireless relay enable/disable
-- [ ] Autocrafter enable/disable
+- [x] Autocrafter enable/disable
 - [ ] Other tunables (tick rates, drive capacities, relay range)
 
 ## Docs and Polish
