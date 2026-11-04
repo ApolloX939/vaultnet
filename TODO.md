@@ -21,7 +21,7 @@
 - [x] `vaultnet_core`: central node, access control formspec
 - [x] `vaultnet_io`: Terminal, Inserter and Exporter
 - [x] `vaultnet_autocrafter`: autocrafter (opt-in)
-- [ ] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
+- [x] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
 - [ ] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
 - [ ] `vaultnet_power_technic`: adapter for Technic
 - [ ] `vaultnet_power_techage`: adapter for Techage
@@ -81,12 +81,12 @@
 - [x] `require_power` defaults to `false`
 
 ## Wireless Relay
-- [ ] Long-distance connections
-- [ ] Requires at least 2 relays to form a link
-- [ ] The other end does not have a core/central node
-- [ ] Forceloads both endpoints
-- [ ] Server owner can enable or disable the feature (config setting)
-- [ ] Optional range limit setting
+- [x] Long-distance connections, linked by relay name (`name` public, `player:name` private)
+- [x] Requires at least 2 relays to form a link
+- [x] The other end does not have a core/central node
+- [x] Forceloads both endpoints
+- [x] Server owner can enable or disable the feature (config setting)
+- [x] Optional range limit setting
 
 ## Power (`require_power`)
 - [ ] Setting `require_power` (bool, default `false`)
@@ -98,7 +98,7 @@
 
 ## Config Settings
 - [ ] `require_power` (default false)
-- [ ] Wireless relay enable/disable
+- [x] Wireless relay enable/disable
 - [x] Autocrafter enable/disable
 - [ ] Other tunables (tick rates, drive capacities, relay range)
 

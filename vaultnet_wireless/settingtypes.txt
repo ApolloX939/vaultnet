@@ -1,0 +1,9 @@
+# Register the wireless relay. Turn off to play without it (placed relays become unknown nodes).
+vaultnet_wireless_enabled (Enable wireless relay) bool true
+
+# Maximum distance between two relays of the same name, in nodes. 0 = unlimited.
+vaultnet_wireless_range (Relay range) int 0 0 100000
+
+# Forceload the map blocks of linked relays so links keep working when nobody is near.
+# Uses the server's forceload budget (max_forceloaded_blocks).
+vaultnet_wireless_forceload (Forceload linked relays) bool true
