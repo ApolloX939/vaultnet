@@ -6,20 +6,39 @@
 #
 #   tools/run_tests.sh            uses LUANTI or ~/games/luanti-5.17.0/bin/luanti
 #   tools/run_tests.sh --power    the same with vaultnet_require_power on (standalone backend)
+#   tools/run_tests.sh --technic  require_power with the Technic adapter (needs technic, pipeworks,
+#                                 basic_materials, xcompat, fakelib in MODS_DIR, default ~/.minetest/mods)
+#   tools/run_tests.sh --techage  require_power with the Techage adapter (needs techage_modpack there)
 set -e
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 LUANTI="${LUANTI:-$HOME/games/luanti-5.17.0/bin/luanti}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+MODS_DIR="${MODS_DIR:-$HOME/.minetest/mods}"
 POWER=0
-[ "$1" = "--power" ] && POWER=1
+EXTRA=()
+case "$1" in
+  --power) POWER=1 ;;
+  --technic) POWER=1; EXTRA=(vaultnet_power_technic) ;;
+  --techage) POWER=1; EXTRA=(vaultnet_power_techage) ;;
+esac
 
 mkdir -p "$WORK/world/worldmods"
 for mod in "$HERE"/vaultnet_*/; do
-  case "$(basename "$mod")" in vaultnet_power_technic|vaultnet_power_techage) continue ;; esac
-  ln -s "${mod%/}" "$WORK/world/worldmods/$(basename "$mod")"
+  name="$(basename "$mod")"
+  case "$name" in
+    vaultnet_power_technic|vaultnet_power_techage)
+      [[ " ${EXTRA[*]} " == *" $name "* ]] || continue ;;
+  esac
+  ln -s "${mod%/}" "$WORK/world/worldmods/$name"
 done
+link() { [ -e "$1" ] && ln -sfn "$1" "$WORK/world/worldmods/$(basename "$1")" || { echo "missing mod: $1" >&2; exit 3; }; }
+if [ "$1" = "--technic" ]; then
+  for m in technic/technic technic/technic_worldgen pipeworks xcompat fakelib techage_modpack/basic_materials; do link "$MODS_DIR/$m"; done
+elif [ "$1" = "--techage" ]; then
+  for m in techage_modpack/techage techage_modpack/networks techage_modpack/tubelib2 techage_modpack/lcdlib techage_modpack/basic_materials techage_modpack/doclib techage_modpack/safer_lua techage_modpack/minecart techage_modpack/signs_bot techage_modpack/nanobasic; do link "$MODS_DIR/$m"; done
+fi
 cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
 {
   echo "gameid = minetest_game"
@@ -28,7 +47,7 @@ cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
   echo "auth_backend = sqlite3"
   echo "mod_storage_backend = sqlite3"
   echo "world_name = vaultnet_tests"
-  for m in "$WORK"/world/worldmods/vaultnet_*/; do echo "load_mod_$(basename "$m") = true"; done
+  for m in "$WORK"/world/worldmods/*/; do n="$(basename "$m")"; [ "$n" = vntest ] || echo "load_mod_$n = true"; done
   echo "load_mod_vntest = true"
 } > "$WORK/world/world.mt"
 echo "mg_name = singlenode" > "$WORK/minetest.conf"

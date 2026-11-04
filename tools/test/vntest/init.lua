@@ -5,6 +5,15 @@ local function check(name, cond, detail)
 	print(("TEST %-52s %s %s"):format(name, cond and "PASS" or "FAIL", cond and "" or tostring(detail or "")))
 end
 
+if core.get_modpath("technic") then
+	-- a producer for the Technic test: supply is set through its meta
+	core.register_node("vntest:producer", {
+		description = "test producer", groups = {technic_machine = 1, technic_lv = 1},
+		on_construct = function(pos) core.get_meta(pos):set_int("LV_EU_supply", 0) end,
+	})
+	technic.register_machine("LV", "vntest:producer", technic.producer)
+end
+
 local function abm_action(label)
 	for _, a in ipairs(core.registered_abms) do
 		if a.label == label then return a.action end
@@ -361,6 +370,33 @@ local function main_power()
 		check("power: inserter idle without power", core.get_meta(cin):get_inventory():get_stack("main", 1):get_count() == 8)
 		-- solar panel at night/day isn't deterministic in a headless world; just check the API
 		check("power: solar supply function works", type(vaultnet.get_def("vaultnet_power:solar").power_supply(P.solar)) == "number")
+	elseif backend == "technic" then
+		-- a real Technic LV network: LV cables above the parts, a switching station on one
+		-- of them, and a test producer (Technic's own generators need fuel or sun)
+		for x = 0, 3 do core.set_node(at(x, 1, 0), {name = "technic:lv_cable0"}) end
+		core.set_node(at(1, 2, 0), {name = "technic:switching_station"})
+		core.set_node(at(4, 1, 0), {name = "vntest:producer"})
+		check("technic: parts registered as LV receivers", technic.machines.LV["vaultnet_io:terminal"] == "RE"
+			and technic.machines.LV["vaultnet_core:core_active"] == "RE" and technic.machines.LV["vaultnet_io:exporter_pz"] == "RE")
+		check("technic: nodes are technic machines (group)", core.get_item_group("vaultnet_core:core", "technic_machine") == 1)
+		check("technic: no supply -> parts unpowered", not vaultnet.is_powered(P.term))   -- also teaches the part its demand
+		check("technic: demand set on the part", core.get_meta(P.term):get_int("LV_EU_demand") == 2,
+			core.get_meta(P.term):get_int("LV_EU_demand"))
+		check("technic: core demand set", (vaultnet.is_powered(P.core) and false) or core.get_meta(P.core):get_int("LV_EU_demand") == 10)
+		local station = abm_action("Switching Station")
+		local timeout = abm_action("Machines: timeout check")
+		core.get_meta(at(4, 1, 0)):set_int("LV_EU_supply", 500)
+		station(at(1, 2, 0), core.get_node(at(1, 2, 0)))
+		check("technic: supply >= demand -> terminal gets its EU", core.get_meta(P.term):get_int("LV_EU_input") == 2,
+			core.get_meta(P.term):get_int("LV_EU_input"))
+		check("technic: is_powered true with supply", vaultnet.is_powered(P.term) and vaultnet.is_powered(P.core))
+		local net = vaultnet.get_network(P.core)
+		check("technic: network status ok when the core is powered", net:status() == "ok", net:status())
+		core.get_meta(at(4, 1, 0)):set_int("LV_EU_supply", 5)
+		station(at(1, 2, 0), core.get_node(at(1, 2, 0)))
+		check("technic: insufficient supply -> nothing powered", not vaultnet.is_powered(P.term) and not vaultnet.is_powered(P.core))
+		net:apply_status(net:status())
+		check("technic: unpowered parts look inactive", core.get_node(P.term).name == "vaultnet_io:terminal")
 	else
 		check("power: backend handler decides: parts unpowered without supply", not vaultnet.is_powered(P.term))
 	end
