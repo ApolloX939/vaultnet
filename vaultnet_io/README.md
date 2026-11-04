@@ -31,10 +31,14 @@ Right-click to open. Needs `put` or `pull` access on the network's core.
   layout (read from its `formspec` meta, or a generated grid when it has none); click
   an inventory list to use it, or tick it in the column on the right. A target with a
   single list is selected for you.
-- Items per transfer: the Importer picks 1 / 2 / 4 / 8 / 16 / 32 / 64. The **Exporter takes an exact amount**: type
-  any number from 1 to 9999 (more than a stack is moved a stack at a time until the number is met in
-  that transfer). An item filter: drop items on the ghost
+- Items per transfer (1 / 2 / 4 / 8 / 16 / 32 / 64), and an item filter: drop items on the ghost
   slots; mode "only these" or "everything except these". Empty filter = everything.
+- **Amounts (Importer and Exporter)**: with "only these" and items in the filter, every filter slot gets its own
+  amount (1 to 9999, default the items-per-transfer value), moved each transfer. The **Exact amounts** toggle
+  decides what happens when the full amount is not there: off, it moves the amount or what is available if less
+  (2 asked, 1 there: 1 moves); on, it moves nothing unless the whole amount is available and fits (for the
+  Exporter: in the network and in the target; for the Importer: in the target and in the network's drives).
+  An empty filter, or "everything except these", uses the items-per-transfer value as a cap.
 - Devices act with their placer's rights on the core (`put` for Importer, `pull` for
   Exporter) and respect area protection on the target. Drives are never inserted.
 - Wakes the target's node timer after exporting (so furnaces start).

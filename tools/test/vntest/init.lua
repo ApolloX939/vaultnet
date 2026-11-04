@@ -521,6 +521,112 @@ local function main_normal()
 				c1 .. " -> " .. count("default:cobble"))
 			core.remove_node(ex); core.remove_node(ex_chest)
 		end
+		-- exporter with an amount per filter slot, and the Exact toggle
+		do
+			local ex_chest = at(7, 0, 4)
+			core.set_node(ex_chest, {name = "default:chest"})
+			local ex = at(7, 0, 3)
+			core.set_node(ex, {name = "vaultnet_io:exporter_pz"})
+			local exm = core.get_meta(ex)
+			exm:set_string("owner", "tester")
+			exm:set_string("lists", core.serialize({main = true}))
+			local ginv = exm:get_inventory()
+			local cinv2 = core.get_meta(ex_chest):get_inventory()
+			local function in_chest(item)
+				local n = 0
+				for _, st in ipairs(cinv2:get_list("main")) do
+					if st:get_name() == item then n = n + st:get_count() end
+				end
+				return n
+			end
+			local function reset() cinv2:set_list("main", {}) end
+			-- a rare item with a known amount in the network
+			local item = "default:gold_lump"
+			local net2 = vaultnet.get_network(P.core)
+			net2:insert(ItemStack(item .. " 1"))
+			local have = count(item)
+			ginv:set_stack("filter", 1, ItemStack(item))
+			exm:set_string("counts", core.serialize({[1] = have + 1}))   -- asks for one more than there is
+			exm:set_int("exact", 0)
+			io(ex, core.get_node(ex))
+			check("exporter slot amount: asked for " .. (have + 1) .. ", only " .. have .. " there -> moves " .. have,
+				in_chest(item) == have and count(item) == 0, in_chest(item))
+			-- put it back, now exact
+			cinv2:remove_item("main", ItemStack(item .. " " .. have))
+			vaultnet.get_network(P.core):insert(ItemStack(item .. " " .. have))
+			exm:set_int("exact", 1)
+			io(ex, core.get_node(ex))
+			check("exporter slot amount: Exact moves nothing when the full amount is not there",
+				in_chest(item) == 0 and count(item) == have, in_chest(item))
+			exm:set_string("counts", core.serialize({[1] = have}))
+			io(ex, core.get_node(ex))
+			check("exporter slot amount: Exact moves it when the full amount is there",
+				in_chest(item) == have and count(item) == 0, in_chest(item))
+			-- a plain amount from a bigger stock, with several filter slots
+			reset()
+			vaultnet.get_network(P.core):insert(ItemStack(item .. " 10"))
+			vaultnet.get_network(P.core):insert(ItemStack("default:cobble 20"))
+			ginv:set_stack("filter", 2, ItemStack("default:cobble"))
+			exm:set_string("counts", core.serialize({[1] = 2, [2] = 3}))
+			exm:set_int("exact", 0)
+			io(ex, core.get_node(ex))
+			check("exporter slot amount: each slot moves its own amount (2 + 3)",
+				in_chest(item) == 2 and in_chest("default:cobble") == 3, in_chest(item) .. "/" .. in_chest("default:cobble"))
+			-- "except these" ignores slot amounts: everything else, up to items per transfer
+			reset()
+			exm:set_string("filter_mode", "deny")
+			exm:set_int("amount", 4)
+			io(ex, core.get_node(ex))
+			check("exporter: 'except these' uses items per transfer, not slot amounts",
+				in_chest(item) == 0 and in_chest("default:cobble") == 0 and next(cinv2:get_list("main")) ~= nil)
+			do
+				local nn = vaultnet.get_network(P.core)
+				for _, e in ipairs(nn:list()) do
+					if e.name == item then nn:extract_key(e.key, e.count) end
+				end
+			end
+			core.remove_node(ex); core.remove_node(ex_chest)
+		end
+		-- importer with an amount per filter slot, and the Exact toggle
+		do
+			local ic = at(8, 0, 4)
+			core.set_node(ic, {name = "default:chest"})
+			local im = at(8, 0, 3)
+			core.set_node(im, {name = "vaultnet_io:importer_pz"})
+			core.set_node(at(8, 0, 2), {name = "vaultnet_cables:cable"})
+			core.set_node(at(7, 0, 2), {name = "vaultnet_cables:cable"})
+			local imm = core.get_meta(im)
+			imm:set_string("owner", "tester")
+			imm:set_string("lists", core.serialize({main = true}))
+			local item = "default:gold_lump"
+			local iinv = core.get_meta(ic):get_inventory()
+			local g0 = count(item)
+			iinv:set_list("main", {})
+			iinv:add_item("main", ItemStack(item .. " 3"))
+			imm:get_inventory():set_stack("filter", 1, ItemStack(item))
+			imm:set_string("counts", core.serialize({[1] = 5}))        -- asks for 2 more than the chest has
+			imm:set_int("exact", 0)
+			io(im, core.get_node(im))
+			check("importer slot amount: asked for 5, only 3 there -> moves 3",
+				count(item) == g0 + 3 and not iinv:contains_item("main", ItemStack(item)), count(item) - g0)
+			iinv:add_item("main", ItemStack(item .. " 3"))
+			imm:set_int("exact", 1)
+			io(im, core.get_node(im))
+			check("importer slot amount: Exact moves nothing when the full amount is not there",
+				count(item) == g0 + 3 and iinv:contains_item("main", ItemStack(item .. " 3")), count(item) - g0)
+			iinv:add_item("main", ItemStack(item .. " 4"))   -- 7 in the chest
+			io(im, core.get_node(im))
+			check("importer slot amount: Exact moves exactly its amount (5 of 7)",
+				count(item) == g0 + 8 and iinv:contains_item("main", ItemStack(item .. " 2"))
+				and not iinv:contains_item("main", ItemStack(item .. " 3")), count(item) - g0)
+			do -- clean up what the test put into the network
+				local nn = vaultnet.get_network(P.core)
+				for _, e in ipairs(nn:list()) do
+					if e.name == item then nn:extract_key(e.key, e.count) end
+				end
+			end
+			core.remove_node(im); core.remove_node(ic)
+		end
 		-- the Inserter became the Importer: old names still resolve
 		check("importer: old item name is an alias", core.registered_aliases["vaultnet_io:inserter"] == "vaultnet_io:importer")
 		check("importer: old node names are aliases", core.registered_aliases["vaultnet_io:inserter_ny"] == "vaultnet_io:importer_ny"

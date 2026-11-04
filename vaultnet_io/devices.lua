@@ -18,7 +18,7 @@ local A = vaultnet.access
 local INTERVAL = tonumber(core.settings:get("vaultnet_io_interval")) or 1.0
 local DEFAULT_AMOUNT = tonumber(core.settings:get("vaultnet_io_default_amount")) or 16
 local AMOUNTS = {1, 2, 4, 8, 16, 32, 64}
-local MAX_EXACT = 9999 -- largest amount an Exporter can be set to per transfer
+local MAX_COUNT = 9999 -- largest per-item amount (Requester, Exporter)
 local FILTER_SLOTS = 8
 local FORMNAME = "vaultnet_io:device"
 
@@ -154,6 +154,25 @@ local function get_counts(meta)
 	return s ~= "" and core.deserialize(s) or {}
 end
 
+-- A slot that gets another item (or none) starts again from the default amount.
+local function forget_count(meta, index)
+	local counts = get_counts(meta)
+	if counts[index] ~= nil then
+		counts[index] = nil
+		meta:set_string("counts", core.serialize(counts))
+	end
+end
+
+-- An Importer or Exporter with items in an "only these" filter has an amount per filter slot.
+local function uses_slot_amounts(meta)
+	if meta:get_string("filter_mode") == "deny" then return false end
+	local inv = meta:get_inventory()
+	for i = 1, FILTER_SLOTS do
+		if not inv:get_stack("filter", i):is_empty() then return true end
+	end
+	return false
+end
+
 local function target_pos(pos, node)
 	local dir = dir_of[node.name]
 	return {x = pos.x + dir.x, y = pos.y + dir.y, z = pos.z + dir.z}
@@ -201,35 +220,139 @@ local function do_insert(net, opts, tinv, lists, allow, budget)
 	return moved
 end
 
--- Network -> target inventory. Moves up to `budget` items in total: it keeps taking from an
--- item (a stack at a time) until the budget is met, the network runs out or the target is full.
+-- Target inventory -> network with an amount per filter slot. Each slot moves its amount, or
+-- whatever the target has when that is less (2 asked, 1 there: 1 moves). With `exact` a slot
+-- moves only when the target holds its whole amount and the network has room for all of it.
+local function do_import_counts(net, opts, tinv, lists, meta, default_amount, exact)
+	local counts, inv = get_counts(meta), meta:get_inventory()
+	local moved = 0
+	for i = 1, FILTER_SLOTS do
+		local ghost = inv:get_stack("filter", i)
+		if not ghost:is_empty() then
+			local name = ghost:get_name()
+			local want = counts[i] or default_amount
+			local available = 0
+			for _, lname in ipairs(lists) do
+				for _, st in ipairs(tinv:get_list(lname) or {}) do
+					if st:get_name() == name then available = available + st:get_count() end
+				end
+			end
+			local go = available > 0
+			if go and exact then
+				local used, cap = net:capacity()
+				go = available >= want and cap - used >= want
+			end
+			if go and not vaultnet.drive.is_drive(ghost) then
+				local left = want
+				for _, lname in ipairs(lists) do
+					for idx = 1, tinv:get_size(lname) do
+						if left <= 0 then break end
+						local st = tinv:get_stack(lname, idx)
+						if st:get_name() == name then
+							local part = st:take_item(math.min(left, st:get_count()))
+							local leftover = net:insert(part, opts)
+							local stored = part:get_count() - leftover:get_count()
+							if not leftover:is_empty() then st:add_item(leftover) end
+							tinv:set_stack(lname, idx, st)
+							left = left - stored
+							if not leftover:is_empty() then left = 0 end -- network full
+						end
+					end
+				end
+				moved = moved + (want - math.max(left, 0))
+			end
+		end
+	end
+	return moved
+end
+
+-- Items of `proto`'s kind the selected lists can still take.
+local function room_for(tinv, lists, proto)
+	local room, one = 0, ItemStack(proto:get_name())
+	one:get_meta():from_table(proto:get_meta():to_table())
+	for _, lname in ipairs(lists) do
+		for _, s in ipairs(tinv:get_list(lname) or {}) do
+			if s:is_empty() then
+				room = room + proto:get_stack_max()
+			elseif ItemStack(s):add_item(one):is_empty() then
+				room = room + s:get_free_space()
+			end
+		end
+	end
+	return room
+end
+
+-- Move up to `budget` of the stored item `entry` into the target, a stack at a time, until the
+-- budget is met, the network runs out or the target is full. Returns the number moved.
+local function move_entry(net, opts, tinv, lists, entry, budget)
+	local moved = 0
+	local probe = vaultnet.key_to_stack(entry.key, 1)
+	local remaining = entry.count
+	while budget > 0 and remaining > 0 do
+		-- stop when no selected list has room for this item
+		local fits = false
+		for _, lname in ipairs(lists) do
+			if tinv:room_for_item(lname, probe) then fits = true break end
+		end
+		if not fits then break end
+		local want = math.min(budget, remaining, probe:get_stack_max())
+		local stack, err = net:extract_key(entry.key, want, opts)
+		if err then break end
+		local got = stack:get_count()
+		if got == 0 then break end
+		for _, lname in ipairs(lists) do
+			if stack:is_empty() then break end
+			stack = tinv:add_item(lname, stack)
+		end
+		local given = got - stack:get_count()
+		if not stack:is_empty() then net:insert(stack) end -- put back what did not fit
+		moved, budget, remaining = moved + given, budget - given, remaining - got
+		if given < got then break end -- target full
+	end
+	return moved
+end
+
+-- Network -> target inventory: everything the filter allows, up to `budget` items in total.
 local function do_export(net, opts, tinv, lists, allow, budget)
 	local moved = 0
 	for _, entry in ipairs(net:list()) do
 		if budget <= 0 then break end
 		if allow(entry.name) then
-			local probe = vaultnet.key_to_stack(entry.key, 1)
-			local remaining = entry.count
-			while budget > 0 and remaining > 0 do
-				-- stop when no selected list has room for this item
-				local fits = false
-				for _, lname in ipairs(lists) do
-					if tinv:room_for_item(lname, probe) then fits = true break end
+			local n = move_entry(net, opts, tinv, lists, entry, budget)
+			moved, budget = moved + n, budget - n
+		end
+	end
+	return moved
+end
+
+-- Network -> target inventory with an amount per filter slot. Each slot moves its amount, or
+-- whatever is available and fits when that is less (2 asked, 1 there: 1 moves). With `exact`
+-- a slot moves only when its whole amount is in the network and fits in the target.
+local function do_export_counts(net, opts, tinv, lists, meta, default_amount, exact)
+	local counts, inv = get_counts(meta), meta:get_inventory()
+	local entries = net:list()
+	local moved = 0
+	for i = 1, FILTER_SLOTS do
+		local ghost = inv:get_stack("filter", i)
+		if not ghost:is_empty() then
+			local name = ghost:get_name()
+			local want = counts[i] or default_amount
+			local mine, available = {}, 0
+			for _, e in ipairs(entries) do
+				if e.name == name then mine[#mine + 1] = e; available = available + e.count end
+			end
+			local go = available > 0
+			if go and exact then
+				go = available >= want
+					and room_for(tinv, lists, vaultnet.key_to_stack(mine[1].key, 1)) >= want
+			end
+			if go then
+				local left = want
+				for _, e in ipairs(mine) do
+					if left <= 0 then break end
+					left = left - move_entry(net, opts, tinv, lists, e, left)
 				end
-				if not fits then break end
-				local want = math.min(budget, remaining, probe:get_stack_max())
-				local stack, err = net:extract_key(entry.key, want, opts)
-				if err then return moved end
-				local got = stack:get_count()
-				if got == 0 then break end
-				for _, lname in ipairs(lists) do
-					if stack:is_empty() then break end
-					stack = tinv:add_item(lname, stack)
-				end
-				local given = got - stack:get_count()
-				if not stack:is_empty() then net:insert(stack) end -- put back what did not fit
-				moved, budget, remaining = moved + given, budget - given, remaining - got
-				if given < got then break end -- target full
+				moved = moved + (want - left)
 			end
 		end
 	end
@@ -334,9 +457,17 @@ local function run(pos, node)
 	local budget = get_amount(meta)
 	local moved
 	if kind == "importer" then
-		moved = do_insert(net, opts, tinv, lists, allow, budget)
+		if uses_slot_amounts(meta) then
+			moved = do_import_counts(net, opts, tinv, lists, meta, budget, meta:get_int("exact") == 1)
+		else
+			moved = do_insert(net, opts, tinv, lists, allow, budget)
+		end
 	elseif kind == "exporter" then
-		moved = do_export(net, opts, tinv, lists, allow, budget)
+		if uses_slot_amounts(meta) then
+			moved = do_export_counts(net, opts, tinv, lists, meta, budget, meta:get_int("exact") == 1)
+		else
+			moved = do_export(net, opts, tinv, lists, allow, budget)
+		end
 		if moved > 0 then wake_target(tpos) end
 	elseif kind == "requester" then
 		moved = do_request(net, opts, tinv, lists, meta, budget)
@@ -497,13 +628,8 @@ local function build(pos, player_name)
 	local amount = get_amount(meta)
 	local aidx = 5
 	for i, a in ipairs(AMOUNTS) do if a == amount then aidx = i end end
-	if kind == "exporter" then
-		-- any exact number, not just the presets
-		fs[#fs + 1] = "label[0.5,6.0;Exact amount per transfer]"
-		fs[#fs + 1] = ("field[0.5,6.2;2,0.7;amount_exact;;%d]"):format(amount)
-		fs[#fs + 1] = "field_close_on_enter[amount_exact;false]"
-	elseif kind ~= "supplier" then
-		fs[#fs + 1] = "label[0.5,6.0;Items per transfer]"
+	if kind ~= "supplier" then
+		fs[#fs + 1] = ((kind == "importer" or kind == "exporter") and "label[0.5,6.0;Items per transfer (no filter)]" or "label[0.5,6.0;Items per transfer]")
 		fs[#fs + 1] = ("dropdown[0.5,6.2;2,0.7;amount;%s;%d]"):format(table.concat(AMOUNTS, ","), aidx)
 	end
 	local py = 8.9   -- player inventory
@@ -525,7 +651,23 @@ local function build(pos, player_name)
 		fs[#fs + 1] = "label[3.0,6.0;Filter]"
 		fs[#fs + 1] = ("dropdown[3.0,6.2;3.4,0.7;filter_mode;Only these items,Everything except these;%d]"):format(
 			meta:get_string("filter_mode") == "deny" and 2 or 1)
-		fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots to set the filter (empty = everything). Click a slot to clear it.]"
+		if (kind == "exporter" or kind == "importer") and uses_slot_amounts(meta) then
+			-- an amount per filter slot, and whether it must be met in full
+			fs[#fs + 1] = ("checkbox[6.7,6.55;exact;Exact amounts;%s]"):format(meta:get_int("exact") == 1 and "true" or "false")
+			fs[#fs + 1] = "tooltip[exact;Off: moves the amount, or what is there if less (2 asked, 1 there: 1 moves).\nOn: moves nothing unless the whole amount is available and fits.]"
+			fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots and set the amount to move under each. Click a slot to clear it.]"
+			local counts = get_counts(meta)
+			local inv = meta:get_inventory()
+			for i = 1, FILTER_SLOTS do
+				if not inv:get_stack("filter", i):is_empty() then
+					fs[#fs + 1] = ("field[%f,8.7;1,0.5;count_%d;;%d]"):format(0.5 + (i - 1) * 1.25, i, counts[i] or amount)
+					fs[#fs + 1] = ("field_close_on_enter[count_%d;false]"):format(i)
+				end
+			end
+			py, height = 9.6, 14.1
+		else
+			fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots to set the filter (empty = everything). Click a slot to clear it.]"
+		end
 	end
 	fs[#fs + 1] = ("list[context;filter;0.5,7.4;%d,1;]"):format(FILTER_SLOTS)
 	fs[#fs + 1] = ("list[current_player;main;0.5,%f;8,4;]"):format(py)
@@ -578,20 +720,16 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		local a = tonumber(fields.amount)
 		if a and a ~= get_amount(meta) then meta:set_int("amount", a) end
 	end
-	if fields.amount_exact and kind_of[node.name] == "exporter" then
-		local a = tonumber(fields.amount_exact)
-		if a then
-			a = math.max(1, math.min(MAX_EXACT, math.floor(a)))
-			if a ~= get_amount(meta) then meta:set_int("amount", a) end
-		end
+	if fields.exact ~= nil and (kind_of[node.name] == "exporter" or kind_of[node.name] == "importer") then
+		meta:set_int("exact", fields.exact == "true" and 1 or 0)
 	end
-	if kind_of[node.name] == "requester" then
+	if kind_of[node.name] ~= "supplier" then
 		local counts = get_counts(meta)
 		local edited = false
 		for i = 1, FILTER_SLOTS do
 			local v = tonumber(fields["count_" .. i])
 			if v then
-				v = math.max(1, math.min(9999, math.floor(v)))
+				v = math.max(1, math.min(MAX_COUNT, math.floor(v)))
 				if counts[i] ~= v then counts[i] = v; edited = true end
 			end
 		end
@@ -654,14 +792,18 @@ local function register(kind, suffix, active)
 		allow_metadata_inventory_put = function(pos, listname, index, stack, player)
 			if listname == "filter" and not core.is_protected(pos, player:get_player_name()) then
 				local ghost = ItemStack(stack:get_name())
-				core.get_meta(pos):get_inventory():set_stack("filter", index, ghost)
+				local meta = core.get_meta(pos)
+				meta:get_inventory():set_stack("filter", index, ghost)
+				forget_count(meta, index)
 				show(pos, player:get_player_name())
 			end
 			return 0
 		end,
 		allow_metadata_inventory_take = function(pos, listname, index, _, player)
 			if listname == "filter" and not core.is_protected(pos, player:get_player_name()) then
-				core.get_meta(pos):get_inventory():set_stack("filter", index, ItemStack(""))
+				local meta = core.get_meta(pos)
+				meta:get_inventory():set_stack("filter", index, ItemStack(""))
+				forget_count(meta, index)
 				show(pos, player:get_player_name())
 			end
 			return 0
