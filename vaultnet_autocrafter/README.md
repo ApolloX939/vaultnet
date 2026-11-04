@@ -14,7 +14,9 @@ Optional. Crafts one fixed recipe from items in the network and stores the resul
   you can take it out) and the crafter pauses until the buffer is empty. It can only be
   dug when the buffer is empty.
 - Static front while idle, animated while the network is active.
-- Settings: `vaultnet_autocrafter_enabled` (default on; off registers nothing) and
+- Settings: `vaultnet_autocrafter_enabled` (default on; off registers nothing),
+  `vaultnet_autocrafter_test_recipe` (adds water bucket + sand -> 2 clay lumps with the empty bucket as a
+  replacement, for testing; Minetest Game has no such recipe) and
   `vaultnet_autocrafter_interval` (seconds per craft).
 
 Textures: `tools/gen_autocrafter_textures.py vaultnet_autocrafter` (needs Pillow).

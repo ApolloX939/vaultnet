@@ -3,3 +3,6 @@ vaultnet_autocrafter_enabled (Enable autocrafter) bool true
 
 # Seconds between crafts of one autocrafter.
 vaultnet_autocrafter_interval (Autocrafter interval) float 1.0 0.2 10.0
+
+# Register a test crafting recipe that has a replacement item: water bucket + sand -> 2 clay lumps, returning the empty bucket.
+vaultnet_autocrafter_test_recipe (Test recipe with replacement) bool false
