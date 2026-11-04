@@ -1,17 +1,27 @@
--- Drive bay: holds BAY_SLOTS drives and shows each one on its front face
--- (an upright_sprite entity per drive, with its fullness light). The drives
--- are the network's storage: the bay provides them via get_drive_slots.
+-- Drive bay: holds BAY_SLOTS drives. Modelled on Refined Storage's disk drive: a
+-- block with 2 columns x 4 rows of slots in its front; each inserted drive is a
+-- small flat disk (an entity with a mesh) sticking out 1/16 of a node, with its
+-- own LED showing fullness. The drives are the network's storage: the bay
+-- provides them via get_drive_slots.
 
 local drive = vaultnet.drive
 
-local BAY_SLOTS = 8        -- 4 columns x 2 rows
-local COLS, ROWS = 4, 2
+local BAY_SLOTS = 8
 local ENT = "vaultnet_drives:bay_drive"
 local NODE, NODE_ACTIVE = "vaultnet_drives:bay", "vaultnet_drives:bay_active"
-local ICON_SIZE = 0.36
--- If the sprites show edge-on instead of flat on the front face, set this
--- to math.pi / 2.
+-- If the disks show edge-on instead of flat on the front face, set this to
+-- math.pi / 2.
 local YAW_OFFSET = 0
+
+-- Slot centres in 1/16 node from the bottom-left of the front face, slot 1 top
+-- left, then left to right, top to bottom. Keep in sync with
+-- tools/gen_drive_textures.py (HOLE_X / HOLE_Y).
+local SLOT_CENTERS = {}
+for row = 0, 3 do
+	for _, cx in ipairs({4, 12}) do
+		SLOT_CENTERS[#SLOT_CENTERS + 1] = {cx, 14 - 4 * row}
+	end
+end
 
 local function protected(pos, player)
 	local name = player and player:get_player_name() or ""
@@ -26,9 +36,10 @@ end
 
 core.register_entity(ENT, {
 	initial_properties = {
-		visual = "upright_sprite",
-		visual_size = {x = ICON_SIZE, y = ICON_SIZE},
-		textures = {"blank.png", "blank.png"},
+		visual = "mesh",
+		mesh = "vaultnet_drives_disk.obj",
+		visual_size = {x = 1, y = 1},
+		textures = {"blank.png", "blank.png"}, -- {disk, led}
 		physical = false,
 		pointable = false,
 		collide_with_objects = false,
@@ -36,25 +47,25 @@ core.register_entity(ENT, {
 	},
 })
 
-local function drive_texture(stack)
+-- {disk texture, LED texture} for a drive stack.
+local function disk_textures(stack)
 	local idef = core.registered_items[stack:get_name()]
 	local def = idef and idef.vaultnet_drive
-	if def and def.state_image then
-		return def.state_image(drive.state(stack))
-	end
-	return (idef and idef.inventory_image) or "blank.png"
+	return {
+		def and def.disk_texture or "blank.png",
+		"vaultnet_drives_led" .. drive.state(stack) .. ".png",
+	}
 end
 
--- Position of slot i (1..BAY_SLOTS) on the front face of the bay at pos.
+-- Position of slot i (1..BAY_SLOTS) just outside the front face of the bay at pos.
 local function slot_pos(pos, front, i)
-	local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
+	local c = SLOT_CENTERS[i]
 	local right = {x = -front.z, y = 0, z = front.x} -- as seen facing the bay
-	local h = (col - (COLS - 1) / 2) * (1 / COLS)
-	local v = 0.25 - row * (1 / ROWS)
-	local out = 0.51
+	local h = (c[1] - 8) / 16
+	local out = 0.5 + 0.5 / 16 -- the disk is 1/16 thick: it spans the face .. 1/16 out
 	return {
 		x = pos.x + front.x * out + right.x * h,
-		y = pos.y + v,
+		y = pos.y + (c[2] - 8) / 16,
 		z = pos.z + front.z * out + right.z * h,
 	}
 end
@@ -92,8 +103,7 @@ local function update_visuals(pos)
 				end
 			end
 			if obj then
-				local tex = drive_texture(stack)
-				obj:set_properties({textures = {tex, tex}})
+				obj:set_properties({textures = disk_textures(stack)})
 				obj:set_yaw(yaw)
 				obj:set_pos(slot_pos(pos, front, i))
 			end
@@ -112,21 +122,24 @@ end
 
 -- Formspec --------------------------------------------------------------------
 
+local COLS, ROWS = 2, 4 -- as laid out on the front of the bay
+
 local function formspec(pos)
 	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
 	local inv = core.get_meta(pos):get_inventory()
 	local fs = {
-		"formspec_version[4]size[11,9.75]",
+		"formspec_version[4]size[11,11.4]",
 		"label[0.5,0.5;Drive Bay]",
 		"list[nodemeta:", spos, ";drives;0.5,1;", COLS, ",", ROWS, ";]",
 	}
 	for i = 1, BAY_SLOTS do
 		local info = drive.info(inv:get_stack("drives", i))
-		local text = info and ("%d: %d / %d"):format(i, info.used, info.capacity)
-			or ("%d: empty"):format(i)
-		fs[#fs + 1] = ("label[6.2,%f;%s]"):format(1.2 + (i - 1) * 0.4, core.formspec_escape(text))
+		local text = info and ("%d / %d"):format(info.used, info.capacity) or "empty"
+		local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
+		fs[#fs + 1] = ("label[%f,%f;%s]"):format(3.4 + col * 3.6, 1.5 + row * 1.25,
+			core.formspec_escape(text))
 	end
-	fs[#fs + 1] = "list[current_player;main;0.5,4.5;8,4;]"
+	fs[#fs + 1] = "list[current_player;main;0.5,6.4;8,4;]"
 	fs[#fs + 1] = "listring[nodemeta:" .. spos .. ";drives]listring[current_player;main]"
 	return table.concat(fs)
 end
@@ -142,14 +155,17 @@ local function drops_of(inv)
 	return out
 end
 
-local function register(name, front, vn, extra)
+local FULL = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}}
+
+local function register(name, slot_tile, vn, extra)
 	local def = {
+		drawtype = "mesh",
+		mesh = "vaultnet_drives_bay.obj",
+		tiles = {"vaultnet_drives_bay_frame.png", slot_tile},
+		selection_box = FULL,
+		collision_box = FULL,
+		paramtype = "light",
 		paramtype2 = "4dir",
-		tiles = {
-			"vaultnet_drives_bay_side.png", "vaultnet_drives_bay_side.png",
-			"vaultnet_drives_bay_side.png", "vaultnet_drives_bay_side.png",
-			"vaultnet_drives_bay_side.png", front,
-		},
 		groups = {cracky = 2, vaultnet_device = 1, vaultnet_bay = 1},
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 		vaultnet = vn,
@@ -203,11 +219,15 @@ local function vn(extra)
 	return t
 end
 
-register(NODE, "vaultnet_drives_bay_front.png", vn({active_variant = NODE_ACTIVE}), {
+register(NODE, "vaultnet_drives_bay_slot.png", vn({active_variant = NODE_ACTIVE}), {
 	description = "VaultNet Drive Bay",
 })
 
-register(NODE_ACTIVE, "vaultnet_drives_bay_front_active.png", vn({inactive_variant = NODE}), {
+-- active: the slot interiors pulse blue behind the drives
+register(NODE_ACTIVE, {
+	name = "vaultnet_drives_bay_slot_active.png",
+	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 4.0},
+}, vn({inactive_variant = NODE}), {
 	description = "VaultNet Drive Bay (active)",
 	drop = NODE,
 	light_source = 2,

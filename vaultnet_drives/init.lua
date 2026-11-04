@@ -34,6 +34,7 @@ for i, tier in ipairs(TIERS) do
 		vaultnet_drive = {
 			capacity = capacity,
 			state_image = state_image(base),
+			disk_texture = "vaultnet_drives_disk" .. i .. ".png", -- the disk shown in a bay
 		},
 	})
 end

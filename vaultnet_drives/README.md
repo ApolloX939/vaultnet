@@ -13,14 +13,18 @@ Ten drive tiers (`vaultnet_drives:drive1` .. `drive10`): Tiny 1k, Mini 2k, Small
 
 ## Drive bay (`vaultnet_drives:bay`)
 
-- Holds 8 drives (fixed). Right-click for the inventory; only drives are accepted and
-  slots respect protection. It must be emptied before it can be dug (blasts drop the
-  drives). Role `bay`: provides the slots the network stores items in.
-- Each inserted drive is drawn on the front face (`upright_sprite` entity) with its
-  fullness light, and refreshed on insert/remove and whenever the network stores or
-  extracts items. Entities are not saved: an LBM restores them on load and an ABM
-  repairs missing ones. If the sprites look edge-on, set `YAW_OFFSET` in `bay.lua`.
-- `bay_active` is the lit variant swapped in while the network is active.
+Modelled on Refined Storage's disk drive.
 
-Recipes: `recipes_mtg.lua` (Minetest Game). Textures are generated placeholders:
-`tools/gen_drive_textures.py` (needs Pillow).
+- 3D mesh block with 2 columns x 4 rows of recessed slots (8 drives, fixed). Right-click for
+  the inventory; only drives are accepted and slots respect protection. It must be emptied
+  before it can be dug (blasts drop the drives). Role `bay`: provides the slots the network
+  stores items in.
+- Each inserted drive shows as a small flat disk sticking out 1/16 of a node (a mesh
+  entity), tinted by tier, with its own LED: green -> red (5 states) by fullness. Refreshed
+  on insert/remove and whenever the network stores or extracts items. Entities are not
+  saved: an LBM restores them on load and an ABM repairs missing ones. If the disks look
+  edge-on, set `YAW_OFFSET` in `bay.lua`.
+- `bay_active` is swapped in while the network is active: the slot interiors pulse blue.
+- Drive items use an RS-style disk icon with the same LED (set through item meta).
+
+Models and textures are generated: `tools/gen_drive_textures.py vaultnet_drives` (needs Pillow).
