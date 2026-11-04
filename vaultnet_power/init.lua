@@ -33,6 +33,7 @@ end
 
 dofile(modpath .. "/budget.lua")
 dofile(modpath .. "/sources.lua")
+dofile(modpath .. "/batteries.lua")
 
 if vaultnet.require_power then
 	vaultnet.register_power_handler(P.handler)

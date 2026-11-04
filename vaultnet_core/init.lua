@@ -285,7 +285,11 @@ local function build(pos, name)
 	}
 	if vaultnet.require_power and vaultnet.power_info and net then
 		local info = vaultnet.power_info(net)
-		fs[#fs + 1] = ("label[0.4,2.55;Power: %d supplied / %d needed]"):format(info.supply, info.demand)
+		local text = ("Power: %d supplied / %d needed"):format(info.supply, info.demand)
+		if info.capacity and info.capacity > 0 then
+			text = text .. ("   Batteries: %d / %d"):format(info.stored, info.capacity)
+		end
+		fs[#fs + 1] = ("label[0.4,2.55;%s]"):format(core.formspec_escape(text))
 	end
 
 	if can_admin then

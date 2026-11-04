@@ -77,3 +77,48 @@ for x in range(6, 10):
     for y in range(9, 12):
         icon.putpixel((x, y), (0xff, 0x90, 0x20, 255))
 icon.save(f"{out}/vaultnet_power_generator_icon.png")
+
+
+# batteries ------------------------------------------------------------------------------
+BAT = {"small": (0x60, 0x90, 0xc0), "medium": (0x40, 0xc0, 0xa0), "large": (0xe0, 0xb0, 0x40)}
+LEVEL_COLORS = [(0xe0, 0x30, 0x30), (0xf0, 0x90, 0x20), (0xe0, 0xd0, 0x20), (0x90, 0xe0, 0x20), (0x30, 0xe0, 0x40)]
+
+def bat_side(accent):
+    im = base()
+    for x in range(1, 15):
+        for y in (6, 7, 8, 9):
+            im.putpixel((x, y), accent + (255,))
+    return im
+
+def bat_front(accent, level):
+    im = base()
+    for y in range(3, 13):                       # cell window
+        for x in range(4, 12):
+            im.putpixel((x, y), (0x10, 0x12, 0x16, 255))
+    for i in range(4):                            # 4 bars, bottom to top
+        lit = level >= i + 1
+        c = LEVEL_COLORS[min(4, i + 1)] if lit else (0x28, 0x2a, 0x30)
+        for y in (10 - i * 2, 11 - i * 2):
+            for x in range(5, 11):
+                im.putpixel((x, y), c + (255,))
+    for x in range(6, 10):                        # terminal cap
+        im.putpixel((x, 2), accent + (255,))
+    return im
+
+for tier, accent in BAT.items():
+    bat_side(accent).save(f"{out}/vaultnet_power_battery_{tier}_side.png")
+    top = base()
+    for x in range(5, 11):
+        for y in range(5, 11):
+            top.putpixel((x, y), accent + (255,))
+    top.save(f"{out}/vaultnet_power_battery_{tier}_top.png")
+    for level in range(5):
+        bat_front(accent, level).save(f"{out}/vaultnet_power_battery_{tier}_front{level}.png")
+    ic = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    for x in range(4, 12):
+        for y in range(3, 14):
+            edge = x in (4, 11) or y in (3, 13)
+            ic.putpixel((x, y), ((0x20, 0x22, 0x28) if edge else accent) + (255,))
+    for x in range(6, 10):
+        ic.putpixel((x, 2), (0xd0, 0xd0, 0xd8, 255))
+    ic.save(f"{out}/vaultnet_power_battery_{tier}_icon.png")

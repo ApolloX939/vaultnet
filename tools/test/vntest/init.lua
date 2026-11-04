@@ -378,6 +378,38 @@ local function main_power()
 		check("power: solar supply function works", type(vaultnet.get_def("vaultnet_power:solar").power_supply(P.solar)) == "number")
 	end
 
+	do
+		-- batteries
+		local bat = at(2, 0, 1)
+		core.set_node(bat, {name = "vaultnet_power:battery_medium_0"})
+		core.get_meta(bat):set_float("charge", 100)
+		local n = vaultnet.get_network(P.core)
+		check("battery: part of the network", n:has(bat))
+		n.power_cache = nil; n.power_last_t = core.get_gametime() - 1
+		local supply, demand = vaultnet.power.budget(n)
+		check("battery: covers a shortfall from its charge", n:status() == "ok" and supply == demand and demand == 20, n:status() .. " " .. supply .. "/" .. demand)
+		check("battery: charge went down by demand * dt", math.abs(core.get_meta(bat):get_float("charge") - 80) < 0.01, core.get_meta(bat):get_float("charge"))
+		-- empty -> unpowered
+		core.get_meta(bat):set_float("charge", 5)
+		n.power_cache = nil; n.power_last_t = core.get_gametime() - 1
+		check("battery: not enough charge -> unpowered", n:status() == "unpowered", n:status())
+		-- rate limit: small battery (20/s) cannot cover 25 units of demand
+		-- surplus charges it: burn a generator
+		core.get_meta(bat):set_float("charge", 0)
+		core.get_meta(P.gen):set_int("burn_left", 100)
+		n.power_cache = nil; n.power_last_t = core.get_gametime() - 1
+		local s2, d2 = vaultnet.power.budget(n)
+		check("battery: surplus charges it (60 supplied, 20 drawn, rate 60 -> +40)", math.abs(core.get_meta(bat):get_float("charge") - 40) < 0.01
+			and s2 == 60, core.get_meta(bat):get_float("charge") .. " " .. s2)
+		-- display swap and charge carried by the item
+		abm_action("VaultNet battery display")(bat, core.get_node(bat))
+		check("battery: look follows the charge", core.get_node(bat).name:match("^vaultnet_power:battery_medium_%d$") ~= nil)
+		local info = vaultnet.power_info(n)
+		check("battery: power_info reports stored/capacity", info.capacity == 3000 and info.stored == 40, info.stored .. "/" .. info.capacity)
+		core.get_meta(P.gen):set_int("burn_left", 0)
+		core.remove_node(bat)
+	end
+
 	if core.get_modpath("vaultnet_power_technic") then
 		-- Technic: an adapter per tier, each on its own LV/MV/HV cable + switching station + test producer
 		local function tier_test(tier, id, ox, cap)
