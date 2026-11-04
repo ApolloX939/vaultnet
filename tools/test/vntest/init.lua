@@ -304,11 +304,29 @@ local function main_normal()
 	local carried = ItemStack(bayinv:get_stack("drives", 1):to_string())
 	check("drive: contents survive to_string/ItemStack", true)
 	local dstack = bayinv:get_stack("drives", 1)
-	check("drive: description updated with used/capacity", dstack:get_meta():get_string("description"):find("/ 1024") ~= nil
-		or bayinv:get_stack("drives", 4):get_meta():get_string("description"):find("/") ~= nil)
+	check("drive: description updated with used/capacity/percent", dstack:get_meta():get_string("description"):find("/ 1,024 items (", 1, true) ~= nil
+		or bayinv:get_stack("drives", 4):get_meta():get_string("description"):find("/ 4,194,304 items (", 1, true) ~= nil)
 	check("drive: LED/inventory_image meta set", (bayinv:get_stack("drives", 1):get_meta():get_string("inventory_image")
 		.. bayinv:get_stack("drives", 4):get_meta():get_string("inventory_image")):find("light") ~= nil)
 	check("drive: cannot be stored in a drive", select(2, net:insert(ItemStack("vaultnet_drives:drive2"))) == "not_storable")
+
+	-- stats in the item tooltips
+	do
+		check("stats: number format", vaultnet.format_number(4194304) == "4,194,304" and vaultnet.format_number(7) == "7"
+			and vaultnet.format_number(1000) == "1,000")
+		check("stats: percent format", vaultnet.format_percent(0, 100) == "0%" and vaultnet.format_percent(1, 1000) == "<1%"
+			and vaultnet.format_percent(50, 200) == "25%" and vaultnet.format_percent(100, 100) == "100%")
+		local fresh = core.registered_items["vaultnet_drives:drive2"].description
+		check("stats: a new drive shows 0 / capacity (0%)", fresh:find("0 / 2,048 items (0%)", 1, true) ~= nil, fresh)
+		local d = ItemStack("vaultnet_drives:drive1")
+		vaultnet.drive.add(d, ItemStack("default:dirt 256"))
+		local desc = d:get_meta():get_string("description")
+		check("stats: a filled drive shows count, max and percent", desc == "Tiny VaultNet Drive\n256 / 1,024 items (25%)", desc)
+		local big = ItemStack("vaultnet_drives:drive10")
+		vaultnet.drive.add(big, ItemStack("default:dirt 99"))
+		check("stats: big drives use separators and <1%", big:get_meta():get_string("description") == "Colossal VaultNet Drive\n99 / 4,194,304 items (<1%)",
+			big:get_meta():get_string("description"))
+	end
 
 	-- no_emc: drives with contents are protected from EMC conversion, empty ones are not
 	do
@@ -655,6 +673,12 @@ local function main_power()
 		check("battery: not enough charge -> unpowered", n:status() == "unpowered", n:status())
 		-- rate limit: small battery (20/s) cannot cover 25 units of demand
 		-- surplus charges it: burn a generator
+		check("stats: a new battery shows 0 charge", core.registered_items["vaultnet_power:battery_medium_0"].description:find("Charge: 0 / 3,000 (0%)", 1, true) ~= nil,
+			core.registered_items["vaultnet_power:battery_medium_0"].description)
+		local carried = {ItemStack("vaultnet_power:battery_medium_0")}
+		core.registered_nodes[core.get_node(bat).name].preserve_metadata(bat, core.get_node(bat), {charge = "750"}, carried)
+		check("stats: a charged battery item shows charge, max and percent", carried[1]:get_meta():get_string("description"):find("Charge: 750 / 3,000 (25%)", 1, true) ~= nil,
+			carried[1]:get_meta():get_string("description"))
 		-- a charged battery's drop carries no_emc, an empty one's does not
 		core.get_meta(bat):set_float("charge", 25)
 		local nodedef = core.registered_nodes[core.get_node(bat).name]

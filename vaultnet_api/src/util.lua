@@ -63,3 +63,24 @@ end
 function vaultnet.key_stack_max(key)
 	return vaultnet.key_to_stack(key, 1):get_stack_max()
 end
+
+-- 1234567 -> "1,234,567"
+function vaultnet.format_number(n)
+	local s = tostring(math.floor(n + 0.5))
+	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (out:gsub("^,", ""))
+end
+
+-- "12%" for used/total; "<1%" when something is used but less than a percent
+function vaultnet.format_percent(used, total)
+	if total <= 0 or used <= 0 then return "0%" end
+	local p = used / total * 100
+	if p < 1 then return "<1%" end
+	return ("%d%%"):format(math.floor(p + 0.5))
+end
+
+-- "1,234 / 4,096 items (30%)"
+function vaultnet.format_usage(used, total, unit)
+	return ("%s / %s%s (%s)"):format(vaultnet.format_number(used), vaultnet.format_number(total),
+		unit and (" " .. unit) or "", vaultnet.format_percent(used, total))
+end

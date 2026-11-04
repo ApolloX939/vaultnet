@@ -4,7 +4,7 @@ Ten drive tiers (`vaultnet_drives:drive1` .. `drive10`): Tiny 1k, Mini 2k, Small
 
 - Contents are stored in the drive item's own meta by `vaultnet.drive` (vaultnet_api),
   keyed by the full ItemStack string, so wear and all meta come back unchanged.
-  A drive keeps its contents when carried; its description shows `used / capacity`.
+  A drive keeps its contents when carried; its tooltip shows `used / capacity items (percent)`, e.g. `256 / 1,024 items (25%)`, also on a new empty drive.
 - Fullness light: the inventory/wield image gets a green -> red light overlay
   (5 states) that is refreshed whenever the contents change.
 - Drives cannot be stored inside drives.

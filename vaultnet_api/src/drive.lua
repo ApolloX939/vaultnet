@@ -22,6 +22,14 @@ function D.is_drive(stack)
 	return drive_def(stack) ~= nil
 end
 
+-- The item's tooltip: its name, then how full it is. A def may set `short_description`
+-- to the plain name; otherwise the first line of its description is used.
+function D.describe(idef, name, used, capacity)
+	local base = idef and (idef.short_description or (idef.description or ""):match("^[^\n]*")) or ""
+	if base == "" then base = name end
+	return base .. "\n" .. vaultnet.format_usage(used, capacity, "items")
+end
+
 function D.state_of(def, data)
 	local fullness = def.capacity > 0 and data.used / def.capacity or 1
 	return math.min(D.STATES, math.max(1, math.ceil(fullness * D.STATES)))
@@ -52,8 +60,7 @@ local function save(stack, data)
 	local items = {}
 	for k, n in pairs(data.items) do items[core.encode_base64(k)] = n end
 	meta:set_string(KEY, core.serialize({v = 2, items = items, used = data.used, types = data.types}))
-	meta:set_string("description", (idef.description or stack:get_name()) ..
-		"\n" .. data.used .. " / " .. def.capacity .. " items")
+	meta:set_string("description", D.describe(idef, stack:get_name(), data.used, def.capacity))
 	-- Mods that turn items into another currency (EMC) look at this flag: a drive with
 	-- contents is worth more than the empty drive and would be destroyed by a conversion.
 	meta:set_string("no_emc", data.used > 0 and "true" or "")

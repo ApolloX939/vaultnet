@@ -25,7 +25,8 @@ local function level_of(charge, cap)
 end
 
 local function describe(t, charge)
-	return ("%s VaultNet Battery\nCharge: %d / %d\nRate: %d units/s"):format(t.name, charge, t.capacity, t.rate)
+	return ("%s VaultNet Battery\nCharge: %s\nRate: %d units/s"):format(t.name,
+		vaultnet.format_usage(charge, t.capacity), t.rate)
 end
 
 for _, t in ipairs(TIERS) do
@@ -33,7 +34,10 @@ for _, t in ipairs(TIERS) do
 		local name = node_name(t, level)
 		local side = ("vaultnet_power_battery_%s_side.png"):format(t.id)
 		core.register_node(name, {
-			description = t.name .. " VaultNet Battery" .. (level > 0 and (" (%d)"):format(level) or ""),
+			-- a new battery already shows its (empty) stats; the item then carries its charge
+			description = level == 0 and describe(t, 0)
+				or (t.name .. " VaultNet Battery (" .. level .. ")"),
+			short_description = t.name .. " VaultNet Battery",
 			paramtype2 = "4dir",
 			tiles = {("vaultnet_power_battery_%s_top.png"):format(t.id), side, side, side, side,
 				("vaultnet_power_battery_%s_front%d.png"):format(t.id, level)},

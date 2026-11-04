@@ -20,7 +20,7 @@ core). The core formspec shows supplied / needed.
 - **Solar Panel** (`vaultnet_power:solar`): 8 units/s in daylight.
 - **Batteries** (`vaultnet_power:battery_small_0`, `_medium_0`, `_large_0`): 600 / 3000 / 15000 unit-seconds at up to
   20 / 60 / 200 units/s. They cover a shortfall from their charge and soak up a surplus; adapters are asked for extra
-  to keep them topped up. The front shows the charge, a battery keeps its charge when dug and placed again (a charged one carries `no_emc`, so EMC mods do not convert it), and the
+  to keep them topped up. The tooltip shows `Charge: 750 / 3,000 (25%)` and the rate (also on a new battery), the front shows the charge, a battery keeps its charge when dug and placed again (a charged one carries `no_emc`, so EMC mods do not convert it), and the
   core formspec shows stored / capacity. A part's draw can also vary (`power_draw(pos)` in its def).
 - **Power Adapters** connect the network to an external power grid. **Only the adapters touch other
   mods' cables; no other VaultNet part does.** An adapter is a normal network device; each second it is

@@ -96,7 +96,8 @@ local function build(pos, name)
 	ctx.page = math.min(math.max(ctx.page, 1), pages)
 
 	local used, cap = net:capacity()
-	fs[#fs + 1] = ("label[5.5,0.5;Storage: %s / %s]"):format(short_count(used), short_count(cap))
+	fs[#fs + 1] = ("label[5.5,0.5;Storage: %s / %s (%s)]"):format(short_count(used), short_count(cap),
+		vaultnet.format_percent(used, cap))
 
 	-- controls
 	local amount_idx = 3

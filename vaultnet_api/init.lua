@@ -1,7 +1,7 @@
 vaultnet = {
 	modname = core.get_current_modname(),
 	modpath = core.get_modpath(core.get_current_modname()),
-	version = "0.1.0",
+	version = "0.2.0",
 }
 
 local src = vaultnet.modpath .. "/src/"

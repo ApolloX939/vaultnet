@@ -287,7 +287,7 @@ local function build(pos, name)
 		local info = vaultnet.power_info(net)
 		local text = ("Power: %d supplied / %d needed"):format(info.supply, info.demand)
 		if info.capacity and info.capacity > 0 then
-			text = text .. ("   Batteries: %d / %d"):format(info.stored, info.capacity)
+			text = text .. ("   Batteries: %s"):format(vaultnet.format_usage(info.stored, info.capacity))
 		end
 		fs[#fs + 1] = ("label[0.4,2.55;%s]"):format(core.formspec_escape(text))
 	end

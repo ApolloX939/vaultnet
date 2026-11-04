@@ -26,7 +26,10 @@ for i, tier in ipairs(TIERS) do
 	local base = "vaultnet_drives_drive" .. i .. ".png"
 
 	core.register_craftitem(modname .. ":drive" .. i, {
-		description = tier.name .. " VaultNet Drive",
+		short_description = tier.name .. " VaultNet Drive",
+		-- a new drive already shows its (empty) stats; they update as it fills
+		description = vaultnet.drive.describe({short_description = tier.name .. " VaultNet Drive"},
+			modname .. ":drive" .. i, 0, capacity),
 		inventory_image = state_image(base)(1),
 		wield_image = state_image(base)(1),
 		stack_max = 1, -- contents live in the stack's meta

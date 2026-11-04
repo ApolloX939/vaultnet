@@ -157,7 +157,7 @@ local function formspec(pos)
 	}
 	for i = 1, BAY_SLOTS do
 		local info = drive.info(inv:get_stack("drives", i))
-		local text = info and ("%d / %d"):format(info.used, info.capacity) or "empty"
+		local text = info and vaultnet.format_usage(info.used, info.capacity) or "empty"
 		local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
 		fs[#fs + 1] = ("label[%f,%f;%s]"):format(3.4 + col * 3.6, 1.5 + row * 1.25,
 			core.formspec_escape(text))
