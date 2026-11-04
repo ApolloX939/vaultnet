@@ -52,10 +52,10 @@ def icon(halves, accent):
     im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     plate, dark = (0x4a, 0x4e, 0x58), (0x22, 0x24, 0x2b)
     # core + cable stub up the middle
-    for y in range(1, 9):
+    for y in range(4, 6):                     # just a short stub of the core
         for x in (6, 7, 8, 9):
             im.putpixel((x, y), (0x3a, 0x3d, 0x44, 255))
-    y = 14
+    y = 11
     for half in halves:                       # bottom (target side) upwards
         for yy in (y, y - 1):
             for x in range(8 - half, 8 + half):
@@ -63,7 +63,7 @@ def icon(halves, accent):
                 im.putpixel((x, yy), (dark if edge else plate) + (255,))
         y -= 2
     for x in range(5, 11):                    # accent LED strip on the flow side
-        im.putpixel((x, 15), accent + (255,))
+        im.putpixel((x, 12), accent + (255,))
     return im
 
 icon([5, 3, 2], (0x30, 0xe0, 0x70)).save(f"{out}/vaultnet_io_inserter.png")   # wide at the target
