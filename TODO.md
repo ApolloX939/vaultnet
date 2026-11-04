@@ -115,6 +115,12 @@
       Techage (aluminum, ta4_ramchip, ta4_wlanchip, ta5_controlunit) components can stand in for the first steps
 - [x] Test: every visible item craftable from real items, buildable from base items (no cycles)
 - [x] EMC: every VaultNet item gets a value from the EMC mod (https://codeberg.org/F3mboyPhoenix/emc), components pinned to their own recipes (`tools/run_tests.sh --emc`)
+- [ ] EMC + Techage: not covered yet. The EMC mod (https://codeberg.org/F3mboyPhoenix/emc; run the check with
+      `EMC_DIR=<clone> tools/run_tests.sh --emc --techage`) has no Techage support, so in a Techage world
+      `default:steel_ingot` and `default:bronze_ingot` (Techage replaces how iron/bronze are made) get no EMC value and
+      neither do most VaultNet items (45 visible items, 40 unpriced as of now). Options: add `base_items/techage.lua` to the EMC
+      mod (steel/bronze chain, aluminum, ...) or give the base items fallback values from `vaultnet_components/emc.lua`
+      when they are unpriced (that fallback existed briefly and was removed to cover Technic only for now)
 - [ ] Decide how EMC should treat drives with contents and charged batteries (the EMC mod prices by item name only)
 - [ ] Balance pass in game (are the costs reasonable?) and per-game recipe files for Mineclonia / VoxeLibre / Hades / Skyblock Zero
 

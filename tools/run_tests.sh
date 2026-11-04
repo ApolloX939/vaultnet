@@ -68,5 +68,5 @@ echo "mg_name = singlenode" > "$WORK/minetest.conf"
 
 timeout 180 "$LUANTI" --server --world "$WORK/world" --gameid minetest_game --port 30777 \
     --config "$WORK/minetest.conf" --logfile "$WORK/server.log" > "$WORK/out.txt" 2>&1 || true
-grep -E "^TEST|^SUMMARY|ERROR|HARNESS|^EMC values|^vaultnet_|^BASE" "$WORK/out.txt" || { cat "$WORK/out.txt"; exit 2; }
+grep -E "^TEST|^SUMMARY|ERROR|HARNESS|^EMC values|^vaultnet_|^NOTE" "$WORK/out.txt" || { cat "$WORK/out.txt"; exit 2; }
 ! grep -q "^TEST.*FAIL\|ERROR\|HARNESS" "$WORK/out.txt"

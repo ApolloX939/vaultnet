@@ -27,14 +27,13 @@ Textures: `tools/gen_component_textures.py vaultnet_components` (needs Pillow).
 ## EMC
 
 With the [EMC mod](https://codeberg.org/F3mboyPhoenix/emc) installed, every VaultNet item (components, devices, drives,
-batteries, machines, adapters) gets an EMC value from its crafting recipe. Two things are handled so those values
-are stable (`emc.lua`, loaded only when that mod is present):
+batteries, machines, adapters) gets an EMC value from its crafting recipe. Covered: Minetest Game, optionally with
+Technic. To keep those values stable, `emc.lua` (loaded only when that mod is present) re-prices the components from their
+**own** recipes after the solver has run, and everything built from them on top: a Technic/Techage alternative recipe would
+otherwise win or lose depending on solver order (a capacitor from a Technic battery would cost 13x less).
 
-- Components are priced from their **own** recipes, never from a Technic/Techage alternative (those would otherwise
-  win or lose depending on solver order; e.g. a capacitor from a Technic battery would cost 13x less).
-- Base items the recipes use (steel, bronze, ...) get their usual value if a world leaves them unpriced (Techage
-  worlds, where the EMC mod does not know Techage's iron chain), so no VaultNet item is left without a value.
+Not covered yet: **Techage worlds** (the EMC mod does not know Techage's iron/bronze chain, so steel and bronze, and with
+them most VaultNet items, stay unpriced) - see `TODO.md`. Also, the EMC mod prices an item by name only, so a drive full of
+items or a charged battery is worth just the empty drive/battery and transmuting it destroys the contents.
 
-Not handled: the EMC mod prices an item by name only, so a drive full of items or a charged battery is worth just the
-empty drive/battery, and transmuting it destroys the contents. `tools/run_tests.sh --emc` (with `EMC_DIR` set to a clone
-of the EMC mod) checks all of this.
+`tools/run_tests.sh --emc` (with `EMC_DIR` set to a clone of the EMC mod) checks it; combine with `--technic` or `--power`.

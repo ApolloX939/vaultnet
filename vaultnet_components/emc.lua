@@ -6,6 +6,8 @@
 -- capacitor) makes the component, and everything built from it, far cheaper than its own
 -- recipe says. So after the solver has run, the components are re-priced from their OWN
 -- recipes, and every other VaultNet item is re-priced from its recipe on top of those.
+--
+-- Covered: Minetest Game, optionally with Technic. Not covered yet: Techage worlds (see TODO.md).
 
 local OWN = vaultnet_components.recipes
 
@@ -30,23 +32,7 @@ local function price(counts, out_count)
 	return math.max(1, math.floor(total / out_count))
 end
 
--- Base items VaultNet recipes use, with the value the EMC mod gives them in a plain Minetest
--- Game world. A world where something changes how they are made (Techage turns iron and
--- bronze into its own chain, which the EMC mod does not know) would leave them unpriced and,
--- with them, every VaultNet item; they only get these values when they have none.
-local FALLBACK = {
-	["default:steel_ingot"] = 256, ["default:copper_ingot"] = 64, ["default:gold_ingot"] = 512,
-	["default:bronze_ingot"] = 60, ["default:paper"] = 9, ["default:glass"] = 1,
-	["default:mese_crystal_fragment"] = 111, ["default:mese_crystal"] = 1000, ["default:mese"] = 9000,
-	["default:diamond"] = 1024, ["default:diamondblock"] = 9216, ["default:coal_lump"] = 128,
-	["default:chest"] = 32, ["default:furnace"] = 8, ["default:flint"] = 2, ["default:stone"] = 1,
-}
-
 emc.register_after_solver_fn(function()
-	for name, value in pairs(FALLBACK) do
-		if core.registered_items[name] and not emc.has(name) then emc.set(name, value) end
-	end
-
 	-- 1. components from their own recipes, in the order they are declared (each only
 	--    needs base items or earlier components)
 	local is_component = {}
