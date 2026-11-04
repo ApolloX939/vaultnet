@@ -44,6 +44,7 @@ core.register_entity(ENT, {
 		physical = false,
 		pointable = false,
 		collide_with_objects = false,
+		glow = 12, -- the disks (and their LEDs) stay visible in the dark
 		static_save = false, -- recreated from the bay's inventory (LBM / ABM)
 	},
 })

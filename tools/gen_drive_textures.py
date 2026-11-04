@@ -160,6 +160,6 @@ build(f"{mod}/models/vaultnet_drives_bay.obj", "VaultNet drive bay", ["frame", "
 S = 1 / 16.0
 disk = [
     (-2.5 * S, -1 * S, -0.5 * S, 2.5 * S, 1 * S, 0.5 * S, "disk", {}),
-    (1.5 * S, -0.5 * S, -0.55 * S, 2.5 * S, 0.5 * S, 0.55 * S, "led", {}),
+    (1.5 * S, -0.5 * S, -1.0 * S, 2.5 * S, 0.5 * S, 1.0 * S, "led", {}),   # sticks out 0.5 px each way
 ]
 build(f"{mod}/models/vaultnet_drives_disk.obj", "VaultNet disk", ["disk", "led"], disk)
