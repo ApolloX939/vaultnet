@@ -97,7 +97,7 @@ end
 function Network:extract_key(key, count, opts)
 	local ok, err = self:check(opts, "pull")
 	if not ok then return ItemStack(), err end
-	local want = math.min(count, ItemStack(key):get_stack_max())
+	local want = math.min(count, vaultnet.key_stack_max(key))
 	local got = 0
 	each_drive(self, function(d)
 		local n = drive.take(d, key, want - got)
@@ -132,7 +132,7 @@ function Network:list()
 	end)
 	local out = {}
 	for key, n in pairs(totals) do
-		out[#out + 1] = {key = key, name = ItemStack(key):get_name(), count = n}
+		out[#out + 1] = {key = key, name = vaultnet.key_name(key), count = n}
 	end
 	table.sort(out, function(a, b)
 		if a.name ~= b.name then return a.name < b.name end

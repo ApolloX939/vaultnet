@@ -38,7 +38,7 @@ local function short_count(n)
 end
 
 local function describe(key)
-	local s = ItemStack(key)
+	local s = vaultnet.key_to_stack(key, 1)
 	local d = s.get_description and s:get_description() or ""
 	if d == "" then d = s:get_name() end
 	return d
@@ -156,7 +156,7 @@ local function take(pos, player, entry, amount_label)
 	elseif amount_label == "10" then
 		want = 10
 	else
-		want = ItemStack(entry.key):get_stack_max()
+		want = vaultnet.key_stack_max(entry.key)
 	end
 	local stack, err = net:extract_key(entry.key, want, {actor = name})
 	if err then say(name, ERR_TEXT[err] or err) return end

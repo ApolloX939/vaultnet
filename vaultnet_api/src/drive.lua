@@ -28,19 +28,30 @@ function D.state_of(def, data)
 end
 
 -- data = {items = {[key] = count}, used = n, types = n}
+--
+-- Item meta can not hold arbitrary strings: the engine strips the control
+-- characters \1 \2 \3 (the ItemStack string delimiters) from meta values. Item keys
+-- are full ItemStack strings, which contain exactly those whenever an item has
+-- metadata, so keys are stored base64-encoded (format v = 2). Drives written
+-- before that (no `v`) hold raw keys and are read as-is.
 local function load(stack)
 	local s = stack:get_meta():get_string(KEY)
-	local data = s ~= "" and core.deserialize(s) or nil
-	if type(data) ~= "table" or type(data.items) ~= "table" then
-		data = {items = {}, used = 0, types = 0}
+	local raw = s ~= "" and core.deserialize(s) or nil
+	if type(raw) ~= "table" or type(raw.items) ~= "table" then
+		return {items = {}, used = 0, types = 0}
 	end
-	return data
+	if raw.v ~= 2 then return raw end
+	local items = {}
+	for k, n in pairs(raw.items) do items[core.decode_base64(k)] = n end
+	return {items = items, used = raw.used, types = raw.types}
 end
 
 local function save(stack, data)
 	local def, idef = drive_def(stack)
 	local meta = stack:get_meta()
-	meta:set_string(KEY, core.serialize(data))
+	local items = {}
+	for k, n in pairs(data.items) do items[core.encode_base64(k)] = n end
+	meta:set_string(KEY, core.serialize({v = 2, items = items, used = data.used, types = data.types}))
 	meta:set_string("description", (idef.description or stack:get_name()) ..
 		"\n" .. data.used .. " / " .. def.capacity .. " items")
 	-- Optional per-state look: def.state_image(state) -> texture string.
