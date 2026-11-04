@@ -23,3 +23,18 @@ components; with **Techage**, aluminum makes casings, and `ta4_ramchip`, `ta4_wl
 circuits, transceivers and processors.
 
 Textures: `tools/gen_component_textures.py vaultnet_components` (needs Pillow).
+
+## EMC
+
+With the [EMC mod](https://codeberg.org/F3mboyPhoenix/emc) installed, every VaultNet item (components, devices, drives,
+batteries, machines, adapters) gets an EMC value from its crafting recipe. Two things are handled so those values
+are stable (`emc.lua`, loaded only when that mod is present):
+
+- Components are priced from their **own** recipes, never from a Technic/Techage alternative (those would otherwise
+  win or lose depending on solver order; e.g. a capacitor from a Technic battery would cost 13x less).
+- Base items the recipes use (steel, bronze, ...) get their usual value if a world leaves them unpriced (Techage
+  worlds, where the EMC mod does not know Techage's iron chain), so no VaultNet item is left without a value.
+
+Not handled: the EMC mod prices an item by name only, so a drive full of items or a charged battery is worth just the
+empty drive/battery, and transmuting it destroys the contents. `tools/run_tests.sh --emc` (with `EMC_DIR` set to a clone
+of the EMC mod) checks all of this.

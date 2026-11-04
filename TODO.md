@@ -114,6 +114,8 @@
 - [x] Optional alternatives: Technic (lv_cable, copper_coil, machine_casing, control_logic_unit, battery, lv_transformer) and
       Techage (aluminum, ta4_ramchip, ta4_wlanchip, ta5_controlunit) components can stand in for the first steps
 - [x] Test: every visible item craftable from real items, buildable from base items (no cycles)
+- [x] EMC: every VaultNet item gets a value from the EMC mod (https://codeberg.org/F3mboyPhoenix/emc), components pinned to their own recipes (`tools/run_tests.sh --emc`)
+- [ ] Decide how EMC should treat drives with contents and charged batteries (the EMC mod prices by item name only)
 - [ ] Balance pass in game (are the costs reasonable?) and per-game recipe files for Mineclonia / VoxeLibre / Hades / Skyblock Zero
 
 ## Machine recipe parity with Technic (standalone `vaultnet_machines`)

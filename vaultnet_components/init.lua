@@ -13,6 +13,8 @@
 
 local modpath = core.get_modpath(core.get_current_modname())
 
+vaultnet_components = {}
+
 local COMPONENTS = {
 	{"wire", "Insulated Wire"},
 	{"coil", "Copper Coil"},
@@ -39,4 +41,8 @@ end
 
 if core.get_modpath("default") then
 	dofile(modpath .. "/recipes_mtg.lua")
+	-- EMC mod installed: keep the components' prices tied to their own recipes
+	if rawget(_G, "emc") and emc.register_after_solver_fn then
+		dofile(modpath .. "/emc.lua")
+	end
 end

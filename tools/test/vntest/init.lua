@@ -146,6 +146,63 @@ local function static_checks()
 	end
 end
 
+-- EMC (https://codeberg.org/F3mboyPhoenix/emc): every visible VaultNet item must get a value from
+-- the mod's recipe solver (run by tools/run_tests.sh --emc).
+local function main_emc()
+	local visible, missing = {}, {}
+	local function scan(reg)
+		for name, def in pairs(reg) do
+			if name:match("^vaultnet_") and (def.groups or {}).not_in_creative_inventory ~= 1 then
+				visible[#visible + 1] = name
+			end
+		end
+	end
+	scan(core.registered_nodes); scan(core.registered_craftitems)
+	table.sort(visible)
+	for _, name in ipairs(visible) do
+		if not emc.get(name) then missing[#missing + 1] = name end
+	end
+	check("emc: all " .. #visible .. " visible VaultNet items have an EMC value", #missing == 0, table.concat(missing, ", "))
+	local out = {}
+	for _, name in ipairs(visible) do out[#out + 1] = ("%-42s %s"):format(name, tostring(emc.get(name))) end
+	print("EMC values:\n" .. table.concat(out, "\n"))
+	local base = {}
+	for _, n in ipairs({"default:steel_ingot", "default:copper_ingot", "default:gold_ingot", "default:bronze_ingot", "default:paper",
+			"default:glass", "default:mese_crystal_fragment", "default:mese_crystal", "default:mese", "default:diamond",
+			"default:diamondblock", "default:coal_lump", "default:chest", "default:furnace", "default:flint", "default:stone"}) do
+		base[#base + 1] = ("%-34s %s"):format("BASE " .. n, tostring(emc.get(n)))
+	end
+	print(table.concat(base, "\n"))
+	-- every value must be positive and a component must cost less than what is built from it
+	local bad = {}
+	for _, name in ipairs(visible) do local v = emc.get(name); if v and v < 1 then bad[#bad + 1] = name end end
+	check("emc: all values are positive", #bad == 0, table.concat(bad, ", "))
+	local function v(n) return emc.get("vaultnet_components:" .. n) or 0 end
+	check("emc: components are worth less than the things built from them",
+		v("wire") < v("coil") and v("circuit") < v("processor") and v("cell_1") < v("cell_2") and v("cell_3") < v("cell_4")
+		and v("processor") < (emc.get("vaultnet_core:core") or 0), "wire " .. v("wire") .. " coil " .. v("coil"))
+	-- each component is priced from its OWN recipe, whatever alternatives Technic/Techage add
+	local off = {}
+	for _, r in ipairs(vaultnet_components.recipes) do
+		local total, ok = 0, true
+		for _, row in ipairs(r.recipe) do
+			for _, name in ipairs(row) do
+				if name ~= "" then
+					local val = emc.get(name)
+					if val then total = total + val else ok = false end
+				end
+			end
+		end
+		local want = math.max(1, math.floor(total / r.count))
+		if ok and emc.get(r.output) ~= want then off[#off + 1] = r.output .. " " .. tostring(emc.get(r.output)) .. " vs " .. want end
+	end
+	check("emc: every component is priced from its own recipe", #off == 0, table.concat(off, "; "))
+	local failed = 0
+	for _, r in ipairs(results) do if not r[2] then failed = failed + 1 end end
+	print(("SUMMARY: %d tests, %d failed"):format(#results, failed))
+	core.request_shutdown("tests done", false, 0)
+end
+
 local function main_normal()
 	static_checks()
 
@@ -676,11 +733,11 @@ local function main_power()
 	core.request_shutdown("tests done", false, 0)
 end
 
-core.after(1, function()
+core.after(rawget(_G, "emc") and emc.load_after and 4 or 1, function()
 	core.emerge_area(vector.add(P0, {x = -4, y = -4, z = -4}), vector.add(P0, {x = 50, y = 6, z = 8}),
 		function(_, _, remaining)
 			if remaining == 0 then
-				local ok, err = xpcall(vaultnet.require_power and main_power or main_normal, debug.traceback)
+				local ok, err = xpcall(rawget(_G, "emc") and main_emc or (vaultnet.require_power and main_power or main_normal), debug.traceback)
 				if not ok then print("HARNESS ERROR: " .. tostring(err)); core.request_shutdown("err", false, 0) end
 			end
 		end)

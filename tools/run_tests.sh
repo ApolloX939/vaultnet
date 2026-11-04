@@ -9,6 +9,8 @@
 #   tools/run_tests.sh --technic  require_power with the Technic adapter (needs technic, pipeworks,
 #                                 basic_materials, xcompat, fakelib in MODS_DIR, default ~/.minetest/mods)
 #   tools/run_tests.sh --techage  require_power with the Techage adapter (needs techage_modpack there)
+#   tools/run_tests.sh --emc      checks every VaultNet item gets a value from the EMC mod
+#                                 (https://codeberg.org/F3mboyPhoenix/emc; set EMC_DIR to its clone)
 set -e
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 LUANTI="${LUANTI:-$HOME/games/luanti-5.17.0/bin/luanti}"
@@ -17,12 +19,18 @@ trap 'rm -rf "$WORK"' EXIT
 
 MODS_DIR="${MODS_DIR:-$HOME/.minetest/mods}"
 POWER=0
+EMC=0
+TECHNIC=0
+TECHAGE=0
 EXTRA=()
-case "$1" in
-  --power) POWER=1 ;;
-  --technic) POWER=1; EXTRA=(vaultnet_power_technic) ;;
-  --techage) POWER=1; EXTRA=(vaultnet_power_techage) ;;
-esac
+for arg in "$@"; do
+  case "$arg" in
+    --power) POWER=1 ;;
+    --technic) POWER=1; TECHNIC=1; EXTRA+=(vaultnet_power_technic) ;;
+    --techage) POWER=1; TECHAGE=1; EXTRA+=(vaultnet_power_techage) ;;
+    --emc) EMC=1 ;;
+  esac
+done
 
 mkdir -p "$WORK/world/worldmods"
 for mod in "$HERE"/vaultnet_*/; do
@@ -34,9 +42,14 @@ for mod in "$HERE"/vaultnet_*/; do
   ln -s "${mod%/}" "$WORK/world/worldmods/$name"
 done
 link() { [ -e "$1" ] && ln -sfn "$1" "$WORK/world/worldmods/$(basename "$1")" || { echo "missing mod: $1" >&2; exit 3; }; }
-if [ "$1" = "--technic" ]; then
+if [ "$EMC" = 1 ]; then
+  [ -n "$EMC_DIR" ] && [ -e "$EMC_DIR/init.lua" ] || { echo "set EMC_DIR to a clone of the emc mod" >&2; exit 3; }
+  ln -sfn "$EMC_DIR" "$WORK/world/worldmods/emc"
+fi
+if [ "$TECHNIC" = 1 ]; then
   for m in technic/technic technic/technic_worldgen pipeworks xcompat fakelib techage_modpack/basic_materials; do link "$MODS_DIR/$m"; done
-elif [ "$1" = "--techage" ]; then
+fi
+if [ "$TECHAGE" = 1 ]; then
   for m in techage_modpack/techage techage_modpack/networks techage_modpack/tubelib2 techage_modpack/lcdlib techage_modpack/basic_materials techage_modpack/doclib techage_modpack/safer_lua techage_modpack/minecart xcompat fakelib; do link "$MODS_DIR/$m"; done
 fi
 cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
@@ -55,5 +68,5 @@ echo "mg_name = singlenode" > "$WORK/minetest.conf"
 
 timeout 180 "$LUANTI" --server --world "$WORK/world" --gameid minetest_game --port 30777 \
     --config "$WORK/minetest.conf" --logfile "$WORK/server.log" > "$WORK/out.txt" 2>&1 || true
-grep -E "^TEST|^SUMMARY|ERROR|HARNESS" "$WORK/out.txt" || { cat "$WORK/out.txt"; exit 2; }
+grep -E "^TEST|^SUMMARY|ERROR|HARNESS|^EMC values|^vaultnet_|^BASE" "$WORK/out.txt" || { cat "$WORK/out.txt"; exit 2; }
 ! grep -q "^TEST.*FAIL\|ERROR\|HARNESS" "$WORK/out.txt"

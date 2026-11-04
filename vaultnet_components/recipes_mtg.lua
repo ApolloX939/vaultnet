@@ -6,8 +6,16 @@ local F, CR, D = "default:mese_crystal_fragment", "default:mese_crystal", "defau
 local GOLD, MB, DB = "default:gold_ingot", "default:mese", "default:diamondblock"
 local V = function(n) return "vaultnet_components:" .. n end
 
-local function shaped(out, recipe) core.register_craft({output = V(out), recipe = recipe}) end
-local function shaped_n(out, n, recipe) core.register_craft({output = V(out) .. " " .. n, recipe = recipe}) end
+-- The components' own recipes, kept as data so the EMC pricing (emc.lua) can use them.
+local OWN = {}
+vaultnet_components.recipes = OWN
+
+local function add(out, n, recipe)
+	OWN[#OWN + 1] = {output = V(out), count = n, recipe = recipe}
+	core.register_craft({output = V(out) .. (n > 1 and (" " .. n) or ""), recipe = recipe})
+end
+local function shaped(out, recipe) add(out, 1, recipe) end
+local function shaped_n(out, n, recipe) add(out, n, recipe) end
 
 shaped_n("wire", 6, {{P, P, P}, {C, C, C}})
 shaped("coil", {{V"wire", V"wire", V"wire"}, {V"wire", F, V"wire"}, {V"wire", V"wire", V"wire"}})
@@ -43,7 +51,7 @@ end
 -- Techage's too ------------------------------------------------------------------------------
 if core.get_modpath("techage") then
 	local A = "techage:aluminum"
-	shaped("casing", {{A, A, A}, {A, "", A}, {A, A, A}})
+	core.register_craft({output = V"casing", recipe = {{A, A, A}, {A, "", A}, {A, A, A}}})
 	core.register_craft({type = "shapeless", output = V"circuit" .. " 2", recipe = {"techage:ta4_ramchip"}})
 	core.register_craft({type = "shapeless", output = V"transceiver", recipe = {"techage:ta4_wlanchip"}})
 	core.register_craft({type = "shapeless", output = V"processor", recipe = {"techage:ta5_controlunit"}})
