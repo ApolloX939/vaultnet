@@ -96,6 +96,10 @@
 - [x] Techage Power Adapter
 - [x] Parts show unpowered/inactive state
 
+## Logistics devices (in `vaultnet_io`)
+- [x] Requester: keeps a target inventory stocked with set amounts, taking only what is missing
+- [x] Supplier: makes a target's items available to the network without moving them (Logistica's passive supplier)
+
 ## Machines (`vaultnet_machines`, optional)
 - [x] Network-fed processing machines in the style of Technic's: Smelter, Grinder, Compressor, Alloy Furnace
 - [x] One job per machine (ghost input slots), inputs from and results to the network, idle/working power draw

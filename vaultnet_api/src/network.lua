@@ -63,6 +63,9 @@ local function add_member(net, pos, def)
 	if def.get_drive_slots then
 		net.drive_hosts[#net.drive_hosts + 1] = vaultnet.copy_pos(pos)
 	end
+	if def.get_supply then
+		net.supply_hosts[#net.supply_hosts + 1] = vaultnet.copy_pos(pos)
+	end
 end
 
 local function build(start)
@@ -76,6 +79,7 @@ local function build(start)
 		roles = {},      -- role -> array of pos
 		cores = {},      -- array of pos
 		drive_hosts = {},-- positions of nodes providing drive slots
+		supply_hosts = {},-- positions of nodes supplying items from an external inventory
 		incomplete = false, -- touched unloaded map area
 		truncated = false,  -- hit vaultnet_max_network_nodes
 		created = core.get_gametime(),

@@ -67,4 +67,6 @@ def icon(halves, accent):
     return im
 
 icon([5, 3, 2], (0x30, 0xe0, 0x70)).save(f"{out}/vaultnet_io_inserter.png")   # wide at the target
+icon([2, 3, 5], (0x60, 0x90, 0xff)).save(f"{out}/vaultnet_io_requester.png")  # like the exporter, blue
+icon([5, 3, 2], (0xb0, 0x70, 0xff)).save(f"{out}/vaultnet_io_supplier.png")   # like the inserter, violet
 icon([2, 3, 5], (0xff, 0x90, 0x20)).save(f"{out}/vaultnet_io_exporter.png")   # narrow at the target

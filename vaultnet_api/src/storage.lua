@@ -70,6 +70,25 @@ local function each_drive(net, fn)
 	end
 end
 
+-- Supplier devices (def.get_supply(pos) -> array of slots like drive slots) offer items
+-- that stay in an external inventory: the network can list, count and take them but not
+-- store into them. Calls fn(stack, slot) for every stack; a true result writes it back.
+local function each_supply(net, fn)
+	for _, host in ipairs(net.supply_hosts) do
+		local def = vaultnet.get_def(core.get_node(host).name)
+		if def and def.get_supply and vaultnet.is_powered(host) then
+			for _, slot in ipairs(def.get_supply(host) or {}) do
+				local stack = slot.get()
+				if not stack:is_empty() then
+					local r = fn(stack, slot)
+					if r then slot.set(stack) end
+					if r == "stop" then return end
+				end
+			end
+		end
+	end
+end
+
 -- Store a stack. Returns (leftover ItemStack, err). Drives cannot be stored.
 function Network:insert(stack, opts)
 	stack = ItemStack(stack)
@@ -106,6 +125,15 @@ function Network:extract_key(key, count, opts)
 		got = got + n
 		return got >= want and "stop" or true
 	end)
+	if got < want then
+		each_supply(self, function(stack)
+			if vaultnet.item_key(stack) ~= key then return false end
+			local n = math.min(want - got, stack:get_count())
+			stack:take_item(n)
+			got = got + n
+			return got >= want and "stop" or true
+		end)
+	end
 	return vaultnet.key_to_stack(key, got)
 end
 
@@ -131,6 +159,11 @@ function Network:list()
 		end
 		return false
 	end)
+	each_supply(self, function(stack)
+		local key = vaultnet.item_key(stack)
+		totals[key] = (totals[key] or 0) + stack:get_count()
+		return false
+	end)
 	local out = {}
 	for key, n in pairs(totals) do
 		out[#out + 1] = {key = key, name = vaultnet.key_name(key), count = n}
@@ -146,6 +179,10 @@ function Network:count_key(key)
 	local total = 0
 	each_drive(self, function(d)
 		total = total + drive.count(d, key)
+		return false
+	end)
+	each_supply(self, function(stack)
+		if vaultnet.item_key(stack) == key then total = total + stack:get_count() end
 		return false
 	end)
 	return total

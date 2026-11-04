@@ -28,3 +28,16 @@ core.register_craft({
 		{S, "default:mese_crystal_fragment", S},
 	},
 })
+
+-- Logistica-style devices are upgrades of the basic ones.
+core.register_craft({
+	type = "shapeless",
+	output = "vaultnet_io:requester",
+	recipe = {"vaultnet_io:exporter", "default:mese_crystal_fragment", "default:paper"},
+})
+
+core.register_craft({
+	type = "shapeless",
+	output = "vaultnet_io:supplier",
+	recipe = {"vaultnet_io:inserter", "default:mese_crystal_fragment", "default:paper"},
+})

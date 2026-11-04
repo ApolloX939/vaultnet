@@ -24,6 +24,11 @@ local FORMNAME = "vaultnet_io:device"
 local KINDS = {
 	inserter = {name = "Inserter", tint = "#d4ffe0"},
 	exporter = {name = "Exporter", tint = "#ffe6c8"},
+	-- Logistica-style, demand driven: a Requester keeps the target stocked with set
+	-- amounts of items; a Supplier makes the target's items available to the network
+	-- without moving them.
+	requester = {name = "Requester", tint = "#cfe0ff"},
+	supplier = {name = "Supplier", tint = "#e8d4ff"},
 }
 
 -- Pointing directions: suffix -> vector from the device to its target.
@@ -60,6 +65,8 @@ end
 local PLATE_HALF = {
 	exporter = {2, 3, 5},
 	inserter = {5, 3, 2},
+	requester = {2, 3, 5},   -- pushes into the target like the Exporter
+	supplier = {5, 3, 2},    -- opens the target to the network like the Inserter
 }
 local R = 2 / 16 -- cable thickness, same as vaultnet_cables
 
@@ -140,6 +147,12 @@ local function make_filter(meta)
 	return function(name) return names[name] == true end
 end
 
+-- Requester: amounts per filter slot ({[slot] = n}); default one stack
+local function get_counts(meta)
+	local s = meta:get_string("counts")
+	return s ~= "" and core.deserialize(s) or {}
+end
+
 local function target_pos(pos, node)
 	local dir = dir_of[node.name]
 	return {x = pos.x + dir.x, y = pos.y + dir.y, z = pos.z + dir.z}
@@ -217,6 +230,67 @@ local function do_export(net, opts, tinv, lists, allow, budget)
 	return moved
 end
 
+-- Network -> target inventory, only what is missing: keeps each filter item stocked up to
+-- its amount (counted over the selected lists). Returns number of items moved.
+local function do_request(net, opts, tinv, lists, meta, budget)
+	local counts, inv = get_counts(meta), meta:get_inventory()
+	local moved = 0
+	for i = 1, FILTER_SLOTS do
+		local ghost = inv:get_stack("filter", i)
+		if budget > 0 and not ghost:is_empty() then
+			local name = ghost:get_name()
+			local want = counts[i] or ItemStack(name):get_stack_max()
+			local have = 0
+			for _, lname in ipairs(lists) do
+				for _, s in ipairs(tinv:get_list(lname) or {}) do
+					if s:get_name() == name then have = have + s:get_count() end
+				end
+			end
+			local need = math.min(want - have, budget)
+			local got = 0
+			while got < need do
+				local stack, err = net:extract_name(name, need - got, opts)
+				if err or stack:is_empty() then break end
+				local c0 = stack:get_count()
+				for _, lname in ipairs(lists) do
+					if stack:is_empty() then break end
+					stack = tinv:add_item(lname, stack)
+				end
+				got = got + (c0 - stack:get_count())
+				if not stack:is_empty() then net:insert(stack) break end -- target is full
+			end
+			moved, budget = moved + got, budget - got
+		end
+	end
+	return moved
+end
+
+-- Supplier: the target's items (selected lists, filtered) as network slots.
+local function supply_slots(pos)
+	local node = core.get_node_or_nil(pos)
+	if not node or not kind_of[node.name] then return {} end
+	local tpos = target_pos(pos, node)
+	if not core.get_node_or_nil(tpos) then return {} end
+	local meta = core.get_meta(pos)
+	local owner = meta:get_string("owner")
+	if owner ~= "" and core.is_protected(tpos, owner) then return {} end
+	local allow = make_filter(meta)
+	local tinv = core.get_meta(tpos):get_inventory()
+	local slots = {}
+	for lname in pairs(get_lists_set(meta)) do
+		for i = 1, tinv:get_size(lname) do
+			local stack = tinv:get_stack(lname, i)
+			if not stack:is_empty() and allow(stack:get_name()) and not vaultnet.drive.is_drive(stack) then
+				slots[#slots + 1] = {
+					get = function() return tinv:get_stack(lname, i) end,
+					set = function(s) tinv:set_stack(lname, i, s) end,
+				}
+			end
+		end
+	end
+	return slots
+end
+
 local function set_info(pos, kind, text)
 	local meta = core.get_meta(pos)
 	local full = ("VaultNet %s\n%s"):format(KINDS[kind].name, text)
@@ -255,9 +329,14 @@ local function run(pos, node)
 	local moved
 	if kind == "inserter" then
 		moved = do_insert(net, opts, tinv, lists, allow, budget)
-	else
+	elseif kind == "exporter" then
 		moved = do_export(net, opts, tinv, lists, allow, budget)
 		if moved > 0 then wake_target(tpos) end
+	elseif kind == "requester" then
+		moved = do_request(net, opts, tinv, lists, meta, budget)
+		if moved > 0 then wake_target(tpos) end
+	else -- supplier: items stay where they are
+		return set_info(pos, kind, "Supplying " .. #supply_slots(pos) .. " stack(s)")
 	end
 	set_info(pos, kind, moved > 0 and "Working" or "Idle")
 end
@@ -344,9 +423,12 @@ local function build(pos, player_name)
 	local fs = {
 		"formspec_version[4]size[12,13.4]",
 		("label[0.5,0.5;VaultNet %s]"):format(KINDS[kind].name),
-		("label[0.5,1.0;%s]"):format(esc(kind == "inserter"
-			and ("Takes from: %s (%d,%d,%d) into the network"):format(core.strip_colors(tdesc), tpos.x, tpos.y, tpos.z)
-			or ("Puts into: %s (%d,%d,%d) from the network"):format(core.strip_colors(tdesc), tpos.x, tpos.y, tpos.z))),
+		("label[0.5,1.0;%s]"):format(esc(({
+			inserter = "Takes from: %s (%d,%d,%d) into the network",
+			exporter = "Puts into: %s (%d,%d,%d) from the network",
+			requester = "Keeps stocked: %s (%d,%d,%d), taking what is missing from the network",
+			supplier = "Offers to the network: %s (%d,%d,%d), items stay where they are",
+		})[kind]:format(core.strip_colors(tdesc), tpos.x, tpos.y, tpos.z))),
 	}
 
 	if #tlists == 0 then
@@ -409,15 +491,35 @@ local function build(pos, player_name)
 	local amount = get_amount(meta)
 	local aidx = 3
 	for i, a in ipairs(AMOUNTS) do if a == amount then aidx = i end end
-	fs[#fs + 1] = "label[0.5,6.0;Items per transfer]"
-	fs[#fs + 1] = ("dropdown[0.5,6.2;2,0.7;amount;%s;%d]"):format(table.concat(AMOUNTS, ","), aidx)
-	fs[#fs + 1] = "label[3.0,6.0;Filter]"
-	fs[#fs + 1] = ("dropdown[3.0,6.2;3.4,0.7;filter_mode;Only these items,Everything except these;%d]"):format(
-		meta:get_string("filter_mode") == "deny" and 2 or 1)
+	if kind ~= "supplier" then
+		fs[#fs + 1] = "label[0.5,6.0;Items per transfer]"
+		fs[#fs + 1] = ("dropdown[0.5,6.2;2,0.7;amount;%s;%d]"):format(table.concat(AMOUNTS, ","), aidx)
+	end
+	local py = 8.9   -- player inventory
+	local height = 13.4
+	if kind == "requester" then
+		fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots to set what to keep stocked, and set the amount under each. Click a slot to clear it.]"
+		local counts = get_counts(meta)
+		local inv = meta:get_inventory()
+		for i = 1, FILTER_SLOTS do
+			local g = inv:get_stack("filter", i)
+			local x = 0.5 + (i - 1) * 1.25
+			if not g:is_empty() then
+				fs[#fs + 1] = ("field[%f,8.7;1,0.5;count_%d;;%d]"):format(x, i, counts[i] or g:get_stack_max())
+			end
+		end
+		fs[#fs + 1] = "field_close_on_enter[count_1;false]"
+		py, height = 9.6, 14.1
+	else
+		fs[#fs + 1] = "label[3.0,6.0;Filter]"
+		fs[#fs + 1] = ("dropdown[3.0,6.2;3.4,0.7;filter_mode;Only these items,Everything except these;%d]"):format(
+			meta:get_string("filter_mode") == "deny" and 2 or 1)
+		fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots to set the filter (empty = everything). Click a slot to clear it.]"
+	end
 	fs[#fs + 1] = ("list[context;filter;0.5,7.4;%d,1;]"):format(FILTER_SLOTS)
-	fs[#fs + 1] = "label[0.5,7.2;Drop items on the slots to set the filter (empty = everything). Click a slot to clear it.]"
-	fs[#fs + 1] = "list[current_player;main;0.5,8.9;8,4;]"
+	fs[#fs + 1] = ("list[current_player;main;0.5,%f;8,4;]"):format(py)
 	fs[#fs + 1] = ("listring[nodemeta:%d,%d,%d;filter]listring[current_player;main]"):format(pos.x, pos.y, pos.z)
+	fs[1] = ("formspec_version[4]size[12,%f]"):format(height)
 	return (table.concat(fs):gsub("list%[context;filter;", ("list[nodemeta:%d,%d,%d;filter;"):format(pos.x, pos.y, pos.z)))
 end
 
@@ -465,6 +567,18 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		local a = tonumber(fields.amount)
 		if a and a ~= get_amount(meta) then meta:set_int("amount", a) end
 	end
+	if kind_of[node.name] == "requester" then
+		local counts = get_counts(meta)
+		local edited = false
+		for i = 1, FILTER_SLOTS do
+			local v = tonumber(fields["count_" .. i])
+			if v then
+				v = math.max(1, math.min(9999, math.floor(v)))
+				if counts[i] ~= v then counts[i] = v; edited = true end
+			end
+		end
+		if edited then meta:set_string("counts", core.serialize(counts)) end
+	end
 	if fields.filter_mode then
 		meta:set_string("filter_mode", fields.filter_mode:find("except", 1, true) and "deny" or "allow")
 	end
@@ -502,6 +616,7 @@ local function register(kind, suffix, active)
 		vaultnet = {
 			role = kind,
 			consumes_power = true,
+			get_supply = kind == "supplier" and supply_slots or nil,
 			active_variant = not active and node_name(kind, suffix, true) or nil,
 			inactive_variant = active and node_name(kind, suffix, false) or nil,
 		},

@@ -302,6 +302,65 @@ local function main_normal()
 		for _, p in ipairs({sm, gr, co, al, none}) do core.remove_node(p) end
 	end
 
+	-- Requester and Supplier (Logistica style)
+	do
+		local function count(item) return vaultnet.get_network(P.core):count_key(item) end
+		local io = abm_action("VaultNet inserter/exporter")
+		-- requester: keeps a chest stocked
+		local chest = at(6, 0, 4)
+		core.set_node(chest, {name = "default:chest"})
+		local rq = at(6, 0, 3)
+		core.set_node(rq, {name = "vaultnet_io:requester_pz"})   -- points +z at the chest
+		core.get_meta(rq):set_string("owner", "tester")
+		core.get_meta(rq):set_string("lists", core.serialize({main = true}))
+		core.get_meta(rq):get_inventory():set_stack("filter", 1, ItemStack("default:stick"))
+		core.get_meta(rq):set_string("counts", core.serialize({[1] = 10}))
+		-- a requester needs a network connection: put a cable between it and the cable run
+		core.set_node(at(5, 0, 2), {name = "vaultnet_cables:cable"})
+		core.set_node(at(6, 0, 2), {name = "vaultnet_cables:cable"})
+		core.set_node(at(5, 0, 1), {name = "vaultnet_cables:cable"})
+		core.set_node(at(4, 0, 2), {name = "vaultnet_cables:cable"})
+		local n = vaultnet.get_network(P.core)
+		check("requester: connected", n:has(rq), n.count)
+		local sticks0 = count("default:stick")
+		io(rq, core.get_node(rq))
+		local cinv = core.get_meta(chest):get_inventory()
+		check("requester: chest stocked up to 10 sticks", cinv:contains_item("main", ItemStack("default:stick 10"))
+			and not cinv:contains_item("main", ItemStack("default:stick 11")), dump(cinv:get_list("main")[1]:to_string()))
+		check("requester: network lost exactly those 10", count("default:stick") == sticks0 - 10, sticks0 .. " -> " .. count("default:stick"))
+		io(rq, core.get_node(rq))
+		check("requester: does nothing once stocked", count("default:stick") == sticks0 - 10)
+		cinv:remove_item("main", ItemStack("default:stick 4"))
+		io(rq, core.get_node(rq))
+		check("requester: tops up what was used (4)", cinv:contains_item("main", ItemStack("default:stick 10")) and count("default:stick") == sticks0 - 14, count("default:stick"))
+
+		-- supplier: items in a chest become available without moving
+		local sc = at(5, 0, 5)
+		core.set_node(sc, {name = "default:chest"})
+		core.get_meta(sc):get_inventory():add_item("main", ItemStack("default:diamond 3"))
+		core.get_meta(sc):get_inventory():add_item("main", ItemStack("default:mese_crystal 2"))
+		local sp = at(5, 0, 4)
+		core.set_node(sp, {name = "vaultnet_io:supplier_pz"})
+		core.get_meta(sp):set_string("owner", "tester")
+		core.get_meta(sp):set_string("lists", core.serialize({main = true}))
+		core.get_meta(sp):get_inventory():set_stack("filter", 1, ItemStack("default:diamond"))   -- only diamonds
+		core.set_node(at(5, 0, 3), {name = "vaultnet_cables:cable"})
+		n = vaultnet.get_network(P.core)
+		check("supplier: connected", n:has(sp))
+		check("supplier: filtered items are counted by the network", count("default:diamond") == 3, count("default:diamond"))
+		check("supplier: unfiltered items are not offered", count("default:mese_crystal") == 0, count("default:mese_crystal"))
+		local listed = false
+		for _, e in ipairs(vaultnet.get_network(P.core):list()) do if e.name == "default:diamond" and e.count == 3 then listed = true end end
+		check("supplier: items appear in the network list", listed)
+		local got = vaultnet.get_network(P.core):extract_name("default:diamond", 2)
+		check("supplier: extracting takes from the chest", got:get_count() == 2 and
+			core.get_meta(sc):get_inventory():get_stack("main", 1):get_count() == 1, got:get_count())
+		local left = vaultnet.get_network(P.core):insert(ItemStack("default:diamond 5"))
+		check("supplier: items are never stored into the supplier chest", core.get_meta(sc):get_inventory():get_stack("main", 1):get_count() == 1)
+		vaultnet.get_network(P.core):extract_name("default:diamond", 99)
+		for _, p in ipairs({rq, sp, chest, sc, at(5, 0, 2), at(6, 0, 2), at(5, 0, 1), at(4, 0, 2), at(5, 0, 3)}) do core.remove_node(p) end
+	end
+
 	-- conflict: second core
 	local core2 = at(1, 1, 0)
 	core.set_node(core2, {name = "vaultnet_core:core"})

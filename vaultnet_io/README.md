@@ -39,3 +39,15 @@ Right-click to open. Needs `put` or `pull` access on the network's core.
 - Settings: transfer interval, default amount.
 
 Textures: `tools/gen_io_textures.py vaultnet_io` (needs Pillow).
+
+## Requester and Supplier (`vaultnet_io:requester`, `vaultnet_io:supplier`)
+
+Logistica-style, demand-driven devices. Same shape, placement, inventory-list preview and filter slots as the
+Inserter/Exporter (the Requester looks like an Exporter in blue, the Supplier like an Inserter in violet).
+
+- **Requester**: keeps the target stocked. Drop items on the slots and set an amount under each (default one
+  stack). Each cycle it counts what the selected lists already hold and takes only the missing items from the
+  network, up to the items-per-transfer amount.
+- **Supplier**: the target's items (selected lists, filtered) become available to the network **without moving**:
+  the network lists, counts and extracts them (so exporters, requesters, machines and the autocrafter can use
+  them) but never stores into them. Logistica's passive supplier. It uses the owner's rights on the target.

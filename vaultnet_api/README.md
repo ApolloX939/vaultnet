@@ -49,6 +49,9 @@ meta come back unchanged. Drives cannot be stored in drives.
 - `net:insert(stack, opts)` -> leftover, err
 - `net:extract_key(key, count, opts)` / `net:extract_name(name, count, opts)` -> stack, err
 - `net:list()`, `net:count_key(key)`, `net:capacity()`
+- A device def with `get_supply(pos)` (array of `{get, set}` slots, like drive slots) *supplies* items that stay in
+  an external inventory: the network lists, counts and extracts them but never stores into them (Logistica's
+  passive supplier). Used by the Supplier in vaultnet_io.
 - `opts.actor = playername` enforces the core's access list; omit for automation
 - `vaultnet.drive.*`: `is_drive`, `info`, `state` (1 green .. 5 red), `STATE_COLORS`, `add`, `take`, `contents`, `count`
 - `vaultnet.item_key(stack)`, `vaultnet.key_to_stack(key, count)`

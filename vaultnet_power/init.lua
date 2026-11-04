@@ -22,7 +22,7 @@ vaultnet.power = P
 
 -- Units per second each part draws (before the multiplier).
 local USE = {
-	core = 10, bay = 5, terminal = 2, inserter = 3, exporter = 3, autocrafter = 8, relay = 10,
+	core = 10, bay = 5, terminal = 2, inserter = 3, exporter = 3, requester = 3, supplier = 2, autocrafter = 8, relay = 10,
 }
 P.default_use = USE
 
