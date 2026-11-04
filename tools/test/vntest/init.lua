@@ -704,6 +704,32 @@ local function main_power()
 		core.remove_node(bat)
 	end
 
+	do
+		-- wireless relays under require_power: building the network used to recurse forever
+		-- (relay conducts -> is_powered -> get_network -> build -> conducts ...), so placing,
+		-- right-clicking and every network lookup around a relay failed with a stack overflow
+		local W = vaultnet.wireless
+		local r1, r2 = at(1, 0, -1), at(40, 0, 3)
+		core.set_node(r1, {name = "vaultnet_wireless:relay"})
+		core.set_node(r2, {name = "vaultnet_wireless:relay"})
+		local relay_def = core.registered_nodes["vaultnet_wireless:relay"]
+		local ok_place, err_place = pcall(relay_def.after_place_node, r1, nil)
+		check("wireless+power: placing a relay does not overflow", ok_place, err_place)
+		W.add("base", r1)
+		W.add("base", r2)
+		local ok_net, rn = pcall(vaultnet.get_network, r1)
+		check("wireless+power: network lookup around a relay works", ok_net and rn ~= nil, rn)
+		check("wireless+power: link spans both relays and the core", ok_net and rn and rn:has(r2) and rn:has(P.core))
+		local ok_status, status = pcall(function() return vaultnet.get_network(P.core):status() end)
+		check("wireless+power: core status works", ok_status and status ~= nil, status)
+		local ok_info = pcall(core.registered_nodes["vaultnet_wireless:relay"].on_rightclick, r1, nil, nil)
+		check("wireless+power: right-click does not error", ok_info)
+		check("wireless+power: relay draws power in the shared budget",
+			ok_net and select(2, vaultnet.power.budget(rn)) >= 40, ok_net and select(2, vaultnet.power.budget(rn)))
+		W.remove(r1); W.remove(r2)
+		core.set_node(r1, {name = "air"}); core.set_node(r2, {name = "air"})
+	end
+
 	if core.get_modpath("vaultnet_power_technic") then
 		-- Technic: an adapter per tier, each on its own LV/MV/HV cable + switching station + test producer
 		local function tier_test(tier, id, ox, cap)
