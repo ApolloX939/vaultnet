@@ -10,7 +10,7 @@ other mod is needed.
 | Machine Casing | 8 steel ingots in a ring | devices |
 | Circuit Board | 4 wire, 4 mese fragments, 1 copper | almost everything |
 | Logic Processor | 4 circuits, 4 gold, 1 mese crystal | core, cells, top-tier devices |
-| Servo Actuator | 4 steel, 3 coils, 1 circuit | bay, Inserter/Exporter, machines |
+| Servo Actuator | 4 steel, 3 coils, 1 circuit | bay, Importer/Exporter, machines |
 | Storage Cell I-IV | circuits, then lower cells, diamonds, processors, blocks | drives |
 | Radio Transceiver | 2 coils, crystal, circuit | wireless relay |
 | Resonance Crystal | 4 mese crystals, 4 diamonds, 1 processor | core |

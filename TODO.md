@@ -21,7 +21,7 @@
 - [x] `vaultnet_cables`: cables, active cables, toggle cable
 - [x] `vaultnet_drives`: drives and the drive bay
 - [x] `vaultnet_core`: central node, access control formspec
-- [x] `vaultnet_io`: Terminal, Inserter and Exporter
+- [x] `vaultnet_io`: Terminal, Importer and Exporter
 - [x] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [x] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
 - [x] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
@@ -50,11 +50,11 @@
 - [x] Inactive texture and animated "active" texture
 - [x] Only one core per network
 
-## Inserter and Exporter
+## Importer and Exporter
 - [x] 3D models
 - [x] Placing against a node points the device in that direction
 - [x] Advanced formspec showing the node being pointed at
-- [x] "Preview" of the target node's formspec, to visually select which inventory(ies) the Inserter pulls from (into the network) and the Exporter puts into (out of the network)
+- [x] "Preview" of the target node's formspec, to visually select which inventory(ies) the Importer pulls from (into the network) and the Exporter puts into (out of the network)
 - [x] Inactive texture and animated active texture
 - [x] Filters and other settings (optional)
 

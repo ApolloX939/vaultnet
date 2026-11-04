@@ -13,7 +13,7 @@ core.register_craft({
 })
 
 core.register_craft({
-	output = "vaultnet_io:inserter",
+	output = "vaultnet_io:importer",
 	recipe = {
 		{S, V"circuit", S},
 		{V"wire", V"actuator", V"wire"},
@@ -40,5 +40,5 @@ core.register_craft({
 core.register_craft({
 	type = "shapeless",
 	output = "vaultnet_io:supplier",
-	recipe = {"vaultnet_io:inserter", V"processor"},
+	recipe = {"vaultnet_io:importer", V"processor"},
 })

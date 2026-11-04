@@ -225,7 +225,7 @@ local function main_normal()
 	core.set_node(P.cable2, {name = "vaultnet_cables:cable"})
 	core.set_node(P.bay, {name = "vaultnet_drives:bay", param2 = 0})
 	core.set_node(P.term, {name = "vaultnet_io:terminal"})
-	core.set_node(P.ins, {name = "vaultnet_io:inserter_pz"})
+	core.set_node(P.ins, {name = "vaultnet_io:importer_pz"})
 	core.set_node(P.exp, {name = "vaultnet_io:exporter_pz"})
 	core.set_node(P.craft, {name = "vaultnet_autocrafter:autocrafter"})
 	core.set_node(P.chest_in, {name = "default:chest"})
@@ -359,18 +359,18 @@ local function main_normal()
 	-- terminal functions are formspec only: just make sure node exists
 	check("terminal node present", core.get_node(P.term).name:match("^vaultnet_io:terminal"))
 
-	-- inserter: chest -> network
+	-- importer: chest -> network
 	local cin = core.get_meta(P.chest_in):get_inventory()
 	cin:add_item("main", ItemStack("default:cobble 40"))
 	core.get_meta(P.ins):set_string("lists", core.serialize({main = true}))
 	core.get_meta(P.ins):set_string("owner", "tester")
-	local io = abm_action("VaultNet inserter/exporter")
+	local io = abm_action("VaultNet importer/exporter")
 	io(P.ins, core.get_node(P.ins))
 	local moved = 16 - 0
-	check("inserter: moved default 16 items into network", net:count_key("default:cobble") == 16
+	check("importer: moved default 16 items into network", net:count_key("default:cobble") == 16
 		or vaultnet.get_network(P.core):count_key("default:cobble") == 16,
 		vaultnet.get_network(P.core):count_key("default:cobble"))
-	check("inserter: chest lost 16", cin:get_stack("main", 1):get_count() == 24, cin:get_stack("main", 1):get_count())
+	check("importer: chest lost 16", cin:get_stack("main", 1):get_count() == 24, cin:get_stack("main", 1):get_count())
 
 	-- exporter: network -> chest, with filter
 	local cout = core.get_meta(P.chest_out):get_inventory()
@@ -465,7 +465,7 @@ local function main_normal()
 	-- Requester and Supplier (Logistica style)
 	do
 		local function count(item) return vaultnet.get_network(P.core):count_key(item) end
-		local io = abm_action("VaultNet inserter/exporter")
+		local io = abm_action("VaultNet importer/exporter")
 		-- requester: keeps a chest stocked
 		local chest = at(6, 0, 4)
 		core.set_node(chest, {name = "default:chest"})
@@ -493,6 +493,51 @@ local function main_normal()
 		cinv:remove_item("main", ItemStack("default:stick 4"))
 		io(rq, core.get_node(rq))
 		check("requester: tops up what was used (4)", cinv:contains_item("main", ItemStack("default:stick 10")) and count("default:stick") == sticks0 - 14, count("default:stick"))
+
+		-- exporter with an exact amount: more than a stack, an odd number
+		do
+			local ex_chest = at(7, 0, 4)
+			core.set_node(ex_chest, {name = "default:chest"})
+			local ex = at(7, 0, 3)
+			core.set_node(ex, {name = "vaultnet_io:exporter_pz"})
+			core.set_node(at(7, 0, 2), {name = "vaultnet_cables:cable"})
+			core.set_node(at(6, 0, 2), {name = "vaultnet_cables:cable"})
+			core.get_meta(ex):set_string("owner", "tester")
+			core.get_meta(ex):set_string("lists", core.serialize({main = true}))
+			core.get_meta(ex):set_int("amount", 150)
+			local cobble0 = count("default:cobble")
+			io(ex, core.get_node(ex))
+			local got = 0
+			for _, st in ipairs(core.get_meta(ex_chest):get_inventory():get_list("main")) do
+				if st:get_name() == "default:cobble" then got = got + st:get_count() end
+			end
+			check("exporter: exact amount 150 moves 150 (more than one stack)", got == math.min(150, cobble0)
+				and count("default:cobble") == cobble0 - got, got .. " of " .. cobble0)
+			core.get_meta(ex_chest):get_inventory():set_list("main", {})
+			core.get_meta(ex):set_int("amount", 7)
+			local c1 = count("default:cobble")
+			io(ex, core.get_node(ex))
+			check("exporter: exact amount 7 moves exactly 7", count("default:cobble") == c1 - math.min(7, c1),
+				c1 .. " -> " .. count("default:cobble"))
+			core.remove_node(ex); core.remove_node(ex_chest)
+		end
+		-- the Inserter became the Importer: old names still resolve
+		check("importer: old item name is an alias", core.registered_aliases["vaultnet_io:inserter"] == "vaultnet_io:importer")
+		check("importer: old node names are aliases", core.registered_aliases["vaultnet_io:inserter_ny"] == "vaultnet_io:importer_ny"
+			and core.registered_aliases["vaultnet_io:inserter_pz_active"] == "vaultnet_io:importer_pz_active")
+		do
+			local old = at(8, 0, 3)
+			core.set_node(old, {name = "vaultnet_io:inserter_pz"})
+			core.get_meta(old):set_string("owner", "tester")
+			core.get_meta(old):set_int("amount", 4)
+			check("importer: a node placed with the old name becomes an Importer, settings kept",
+				core.get_node(old).name == "vaultnet_io:importer_pz"
+				and core.get_meta(old):get_int("amount") == 4 and core.get_meta(old):get_string("owner") == "tester",
+				core.get_node(old).name)
+			core.remove_node(old)
+		end
+		check("importer: item registered", core.registered_items["vaultnet_io:importer"] ~= nil
+			and core.registered_items["vaultnet_io:inserter"] ~= nil)
 
 		-- supplier: items in a chest become available without moving
 		local sc = at(5, 0, 5)
@@ -601,7 +646,7 @@ local function main_power()
 	core.set_node(P.bay, {name = "vaultnet_drives:bay"})
 	core.set_node(P.term, {name = "vaultnet_io:terminal"})
 	core.set_node(P.gen, {name = "vaultnet_power:generator"})
-	core.set_node(P.ins, {name = "vaultnet_io:inserter_pz"})
+	core.set_node(P.ins, {name = "vaultnet_io:importer_pz"})
 	vaultnet.access.init(P.core, "tester")
 	core.get_meta(P.bay):get_inventory():set_stack("drives", 1, ItemStack("vaultnet_drives:drive1"))
 
@@ -621,7 +666,7 @@ local function main_power()
 		check("power: parts look inactive without power", core.get_node(P.term).name == "vaultnet_io:terminal"
 			and core.get_node(P.core).name == "vaultnet_core:core")
 		local supply, demand = vaultnet.power.budget(net)
-		check("power: budget supply 0, demand = core+bay+terminal+inserter (10+5+2+3)", supply == 0 and demand == 20, supply .. "/" .. demand)
+		check("power: budget supply 0, demand = core+bay+terminal+importer (10+5+2+3)", supply == 0 and demand == 20, supply .. "/" .. demand)
 
 		local inv = core.get_meta(P.gen):get_inventory()
 		inv:set_stack("fuel", 1, ItemStack("default:coal_lump 2"))
@@ -651,8 +696,8 @@ local function main_power()
 		core.set_node(cin, {name = "default:chest"})
 		core.get_meta(cin):get_inventory():add_item("main", ItemStack("default:cobble 8"))
 		core.get_meta(P.ins):set_string("lists", core.serialize({main = true}))
-		abm_action("VaultNet inserter/exporter")(P.ins, core.get_node(P.ins))
-		check("power: inserter idle without power", core.get_meta(cin):get_inventory():get_stack("main", 1):get_count() == 8)
+		abm_action("VaultNet importer/exporter")(P.ins, core.get_node(P.ins))
+		check("power: importer idle without power", core.get_meta(cin):get_inventory():get_stack("main", 1):get_count() == 8)
 		check("power: solar supply function works", type(vaultnet.get_def("vaultnet_power:solar").power_supply(P.solar)) == "number")
 	end
 

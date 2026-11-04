@@ -1,5 +1,5 @@
 """VaultNet IO assets. Usage: gen_io_textures.py <vaultnet_io dir>  (needs Pillow)
-Writes the terminal textures and the inserter/exporter inventory icons."""
+Writes the terminal textures and the importer/exporter inventory icons."""
 import os, sys
 from PIL import Image
 mod = sys.argv[1]
@@ -45,9 +45,9 @@ for f in range(FRAMES):
 strip.save(f"{out}/vaultnet_io_terminal_front_active.png")
 
 
-# ---- inserter / exporter inventory icons --------------------------------
+# ---- importer / exporter inventory icons --------------------------------
 # Side view of the stepped plates (target at the bottom), as in Refined Storage's
-# Importer/Exporter: the Exporter narrows towards the target, the Inserter widens.
+# Importer/Exporter: the Exporter narrows towards the target, the Importer widens.
 def icon(halves, accent):
     im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     plate, dark = (0x4a, 0x4e, 0x58), (0x22, 0x24, 0x2b)
@@ -66,7 +66,7 @@ def icon(halves, accent):
         im.putpixel((x, 12), accent + (255,))
     return im
 
-icon([5, 3, 2], (0x30, 0xe0, 0x70)).save(f"{out}/vaultnet_io_inserter.png")   # wide at the target
+icon([5, 3, 2], (0x30, 0xe0, 0x70)).save(f"{out}/vaultnet_io_importer.png")   # wide at the target
 icon([2, 3, 5], (0x60, 0x90, 0xff)).save(f"{out}/vaultnet_io_requester.png")  # like the exporter, blue
-icon([5, 3, 2], (0xb0, 0x70, 0xff)).save(f"{out}/vaultnet_io_supplier.png")   # like the inserter, violet
+icon([5, 3, 2], (0xb0, 0x70, 0xff)).save(f"{out}/vaultnet_io_supplier.png")   # like the importer, violet
 icon([2, 3, 5], (0xff, 0x90, 0x20)).save(f"{out}/vaultnet_io_exporter.png")   # narrow at the target

@@ -1,9 +1,9 @@
--- Inserter and Exporter.
+-- Importer and Exporter.
 --
---  Inserter: target inventory -> network.   Exporter: network -> target inventory.
+--  Importer: target inventory -> network.   Exporter: network -> target inventory.
 --
 -- Place the device against a node: it points at that node. There is one node
--- per pointing direction (e.g. vaultnet_io:inserter_ny points at the node below);
+-- per pointing direction (e.g. vaultnet_io:importer_ny points at the node below);
 -- the placeable item picks the right one. Cable stubs are connected-nodebox arms,
 -- so they only show on sides where a cable (or other device) is. Right-click
 -- opens the configuration:
@@ -17,12 +17,13 @@ local A = vaultnet.access
 
 local INTERVAL = tonumber(core.settings:get("vaultnet_io_interval")) or 1.0
 local DEFAULT_AMOUNT = tonumber(core.settings:get("vaultnet_io_default_amount")) or 16
-local AMOUNTS = {1, 4, 16, 64}
+local AMOUNTS = {1, 2, 4, 8, 16, 32, 64}
+local MAX_EXACT = 9999 -- largest amount an Exporter can be set to per transfer
 local FILTER_SLOTS = 8
 local FORMNAME = "vaultnet_io:device"
 
 local KINDS = {
-	inserter = {name = "Inserter", tint = "#d4ffe0"},
+	importer = {name = "Importer", tint = "#d4ffe0"},
 	exporter = {name = "Exporter", tint = "#ffe6c8"},
 	-- Logistica-style, demand driven: a Requester keeps the target stocked with set
 	-- amounts of items; a Supplier makes the target's items available to the network
@@ -60,13 +61,13 @@ end
 
 -- Shape, modelled on Refined Storage's Importer/Exporter: three stepped square
 -- plates (half-widths in 1/16 node, 2 thick each) in front of a 4/16 core. The
--- Exporter's plates narrow towards the target, the Inserter's widen. Written for
+-- Exporter's plates narrow towards the target, the Importer's widen. Written for
 -- a target at -Y, then rotated per direction.
 local PLATE_HALF = {
 	exporter = {2, 3, 5},
-	inserter = {5, 3, 2},
+	importer = {5, 3, 2},
 	requester = {2, 3, 5},   -- pushes into the target like the Exporter
-	supplier = {5, 3, 2},    -- opens the target to the network like the Inserter
+	supplier = {5, 3, 2},    -- opens the target to the network like the Importer
 }
 local R = 2 / 16 -- cable thickness, same as vaultnet_cables
 
@@ -200,30 +201,35 @@ local function do_insert(net, opts, tinv, lists, allow, budget)
 	return moved
 end
 
--- Network -> target inventory.
+-- Network -> target inventory. Moves up to `budget` items in total: it keeps taking from an
+-- item (a stack at a time) until the budget is met, the network runs out or the target is full.
 local function do_export(net, opts, tinv, lists, allow, budget)
 	local moved = 0
 	for _, entry in ipairs(net:list()) do
 		if budget <= 0 then break end
 		if allow(entry.name) then
-			-- skip items no selected list has room for
 			local probe = vaultnet.key_to_stack(entry.key, 1)
-			local fits = false
-			for _, lname in ipairs(lists) do
-				if tinv:room_for_item(lname, probe) then fits = true break end
-			end
-			if fits then
-				local want = math.min(budget, entry.count, probe:get_stack_max())
+			local remaining = entry.count
+			while budget > 0 and remaining > 0 do
+				-- stop when no selected list has room for this item
+				local fits = false
+				for _, lname in ipairs(lists) do
+					if tinv:room_for_item(lname, probe) then fits = true break end
+				end
+				if not fits then break end
+				local want = math.min(budget, remaining, probe:get_stack_max())
 				local stack, err = net:extract_key(entry.key, want, opts)
 				if err then return moved end
 				local got = stack:get_count()
+				if got == 0 then break end
 				for _, lname in ipairs(lists) do
 					if stack:is_empty() then break end
 					stack = tinv:add_item(lname, stack)
 				end
 				local given = got - stack:get_count()
 				if not stack:is_empty() then net:insert(stack) end -- put back what did not fit
-				moved, budget = moved + given, budget - given
+				moved, budget, remaining = moved + given, budget - given, remaining - got
+				if given < got then break end -- target full
 			end
 		end
 	end
@@ -327,7 +333,7 @@ local function run(pos, node)
 	local allow = make_filter(meta)
 	local budget = get_amount(meta)
 	local moved
-	if kind == "inserter" then
+	if kind == "importer" then
 		moved = do_insert(net, opts, tinv, lists, allow, budget)
 	elseif kind == "exporter" then
 		moved = do_export(net, opts, tinv, lists, allow, budget)
@@ -345,7 +351,7 @@ local ALL_NODES = {}
 for name in pairs(kind_of) do ALL_NODES[#ALL_NODES + 1] = name end
 
 core.register_abm({
-	label = "VaultNet inserter/exporter",
+	label = "VaultNet importer/exporter",
 	nodenames = ALL_NODES,
 	interval = INTERVAL,
 	chance = 1,
@@ -424,7 +430,7 @@ local function build(pos, player_name)
 		"formspec_version[4]size[12,13.4]",
 		("label[0.5,0.5;VaultNet %s]"):format(KINDS[kind].name),
 		("label[0.5,1.0;%s]"):format(esc(({
-			inserter = "Takes from: %s (%d,%d,%d) into the network",
+			importer = "Takes from: %s (%d,%d,%d) into the network",
 			exporter = "Puts into: %s (%d,%d,%d) from the network",
 			requester = "Keeps stocked: %s (%d,%d,%d), taking what is missing from the network",
 			supplier = "Offers to the network: %s (%d,%d,%d), items stay where they are",
@@ -489,9 +495,14 @@ local function build(pos, player_name)
 
 	-- settings --------------------------------------------------------------
 	local amount = get_amount(meta)
-	local aidx = 3
+	local aidx = 5
 	for i, a in ipairs(AMOUNTS) do if a == amount then aidx = i end end
-	if kind ~= "supplier" then
+	if kind == "exporter" then
+		-- any exact number, not just the presets
+		fs[#fs + 1] = "label[0.5,6.0;Exact amount per transfer]"
+		fs[#fs + 1] = ("field[0.5,6.2;2,0.7;amount_exact;;%d]"):format(amount)
+		fs[#fs + 1] = "field_close_on_enter[amount_exact;false]"
+	elseif kind ~= "supplier" then
 		fs[#fs + 1] = "label[0.5,6.0;Items per transfer]"
 		fs[#fs + 1] = ("dropdown[0.5,6.2;2,0.7;amount;%s;%d]"):format(table.concat(AMOUNTS, ","), aidx)
 	end
@@ -566,6 +577,13 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	if fields.amount then
 		local a = tonumber(fields.amount)
 		if a and a ~= get_amount(meta) then meta:set_int("amount", a) end
+	end
+	if fields.amount_exact and kind_of[node.name] == "exporter" then
+		local a = tonumber(fields.amount_exact)
+		if a then
+			a = math.max(1, math.min(MAX_EXACT, math.floor(a)))
+			if a ~= get_amount(meta) then meta:set_int("amount", a) end
+		end
 	end
 	if kind_of[node.name] == "requester" then
 		local counts = get_counts(meta)
@@ -681,4 +699,13 @@ for kind in pairs(KINDS) do
 		register(kind, suffix, false)
 		register(kind, suffix, true)
 	end
+end
+
+-- The Inserter was renamed Importer. Aliases turn every old Inserter (items in inventories
+-- and chests, nodes already placed in the world, with their settings and filter) into the
+-- matching Importer, so there is nothing to swap by hand.
+core.register_alias("vaultnet_io:inserter", "vaultnet_io:importer")
+for suffix in pairs(DIRS) do
+	core.register_alias(node_name("inserter", suffix, false), node_name("importer", suffix, false))
+	core.register_alias(node_name("inserter", suffix, true), node_name("importer", suffix, true))
 end

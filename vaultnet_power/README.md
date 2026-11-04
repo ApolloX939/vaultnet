@@ -1,11 +1,11 @@
 # vaultnet_power
 
 Only does anything with the setting `vaultnet_require_power` on (default off). Then every part
-that consumes power -- the core, drive bays, terminal, Inserter, Exporter, autocrafter and
+that consumes power -- the core, drive bays, terminal, Importer, Exporter, autocrafter and
 wireless relay -- needs it. A part without power looks inactive and does not work (an unpowered
 bay's drives are out of reach, an unpowered core takes the whole network down, an unpowered relay
 does not link). Cables and power sources use none. Draw is in units per second:
-core 10, bay 5, terminal 2, Inserter 3, Exporter 3, autocrafter 8, relay 10, scaled by
+core 10, bay 5, terminal 2, Importer 3, Exporter 3, autocrafter 8, relay 10, scaled by
 `vaultnet_power_use_multiplier`. A device can override it with `power_use` in its `vaultnet` def.
 The toggle cable (registered only with require_power) can switch a part of the network off.
 
