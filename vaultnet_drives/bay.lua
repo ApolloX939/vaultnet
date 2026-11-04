@@ -47,6 +47,22 @@ core.register_entity(ENT, {
 		glow = 12, -- the disks (and their LEDs) stay visible in the dark
 		static_save = false, -- recreated from the bay's inventory (LBM / ABM)
 	},
+
+	-- Remove ourselves when the bay is gone, moved, or this slot was emptied, so no
+	-- stray disks linger at an old position.
+	on_step = function(self, dtime)
+		self.check_timer = (self.check_timer or 0) + dtime
+		if self.check_timer < 2 then return end
+		self.check_timer = 0
+		local pos = self.bay_pos
+		if not pos or not self.slot then return self.object:remove() end
+		local node = core.get_node_or_nil(pos)
+		if not node then return end -- area not loaded: leave it alone
+		if node.name ~= NODE and node.name ~= NODE_ACTIVE then return self.object:remove() end
+		if core.get_meta(pos):get_inventory():get_stack("drives", self.slot):is_empty() then
+			return self.object:remove()
+		end
+	end,
 })
 
 -- Texture for a drive stack's disk: the tier texture with the state LED painted

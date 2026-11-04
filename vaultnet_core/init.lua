@@ -56,6 +56,15 @@ core.register_entity(CRYSTAL, {
 		automatic_rotate = 0.3,
 	},
 	on_step = function(self, dtime)
+		-- Remove ourselves when the core is gone or moved, so no stray crystals
+		-- linger at an old position.
+		self.check_timer = (self.check_timer or 0) + dtime
+		if self.check_timer >= 2 then
+			self.check_timer = 0
+			if not self.core_pos then return self.object:remove() end
+			local node = core.get_node_or_nil(self.core_pos)
+			if node and not STATE_OF[node.name] then return self.object:remove() end
+		end
 		if not self.state or not LOOK[self.state].animated then return end
 		self.timer = (self.timer or 0) + dtime
 		if self.timer < 0.25 then return end
