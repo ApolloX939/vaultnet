@@ -105,6 +105,78 @@
 - [x] One job per machine (ghost input slots), inputs from and results to the network, idle/working power draw
 - [x] Recipe registry, Minetest Game basics, Technic grinding/compressing/alloy recipes imported when present
 
+## Machine recipe parity with Technic (standalone `vaultnet_machines`)
+Goal: the Grinder, Compressor and Alloy Furnace offer the same recipes as Technic's grinder, compressor and
+alloy furnace. With `technic` installed we use Technic's recipes and items (already imported at startup);
+without it we register our own. Source of the list: `technic/machines/register/{grinder,compressor,alloy}_recipes.lua`
+and `grindings.lua`.
+
+### Decisions / structure
+- [ ] Rule: with Technic present, Technic's recipes win (they replace our built-in ones with the same inputs, and
+      our own-only items are not registered); without it, register our own items and recipes. Setting
+      `vaultnet_machines_recipes` = `auto` (default) / `technic` / `own`.
+- [ ] Own items live under `vaultnet_machines:` (e.g. `vaultnet_machines:copper_dust`), registered only when
+      `technic` is absent. When Technic is present, `core.register_alias` our names to the matching `technic:`
+      items so a world can switch between the two without losing items.
+- [ ] Move the recipes into a data table (`recipes_data.lua`) with a `requires` guard per entry (mod name or item
+      names), like Technic's `dependent_recipes`: an entry is only registered when its inputs and outputs exist.
+- [ ] Align built-ins with Technic's values: sandstone variants grind to 2 sand (ours gives 4), alloy time 12 s for
+      bronze (ours 6 s); remove or keep our extra "ore -> 2 lumps" grinding (Technic has none) - decide.
+- [ ] Decide whether to defuse the vanilla crafts the way Technic does (sand -> sandstone 2x2, sandstone -> 4 sand
+      infinite-sand loop). Default: leave them, setting to clear them.
+- [ ] Item textures for the new items (procedural, one per dust/plate, tinted by material) + tool script.
+
+### Recipe matching gaps in the machines
+- [ ] Group inputs: Technic grinds `group:tree` and `group:wood`. Recipe lookup is by item name only; add group
+      matching (a ghost item of that group matches the recipe) and show the group in the formspec.
+- [ ] Recipes whose output is a list (the centrifuge/extractor outputs) are skipped by the import; only needed if we
+      add those machines (below).
+- [ ] Only import/register recipes whose items all exist (skips chromium, zinc, lead, sulfur, uranium and the
+      modded materials unless their mods are loaded).
+
+### Grinding (`grinder_recipes.lua`, `grindings.lua`)
+- [x] Base game only, already present: cobble -> gravel, gravel -> sand, sandstone -> sand
+- [ ] Base game only, missing: desert_sandstone -> 2 desert_sand, silver_sandstone -> 2 silver_sand,
+      desert_stone -> desert_sand, ice -> snowblock
+- [ ] Needs new items (dusts): coal, copper, gold, tin lump -> 2 dust; iron lump -> 2 iron dust (Technic: wrought
+      iron); stone / sand / desert_sand / silver_sand -> stone dust
+- [ ] Every dust also needs: `cooking` recipe dust -> ingot (so the Smelter works) and a grinder recipe ingot -> dust
+      (bronze, copper, gold, tin, plus brass/steels if those items exist)
+- [ ] Wood: group:tree -> 4 tree grindings, group:wood -> 1 grindings, grindings -> 4 sawdust; items `grindings`
+      (fuel 8 s) and `sawdust` (fuel 6 s)
+- [ ] Technic-only materials (chromium, zinc, lead, sulfur, uranium lumps -> dust): only with Technic; our own
+      version would need our own ore/worldgen, so out of scope - leave to the import
+- [ ] Mod-dependent entries (guarded): everness sandstones, farming wheat seed -> flour, moreores silver/mithril,
+      nether lump, gloopores lumps, homedecor brass ingot
+
+### Compressing (`compressor_recipes.lua`)
+- [x] Already present: sand / desert_sand / silver_sand (2) -> sandstone variants
+- [ ] Missing, base game: snowblock -> ice, desert_sand -> desert_stone
+- [ ] Needs new items: copper ingot 5 -> copper plate, coal dust 4 -> graphite, sawdust 4 -> wood
+- [ ] Technic-progression items (composite plate, carbon plate, uranium fuel): only with Technic, via the import
+- [ ] Mod-dependent entries (guarded): everness coral/crystal sandstones, nether brick / rack chain
+
+### Alloying (`alloy_recipes.lua`)
+- [x] Already present: copper ingot 7 + tin ingot -> bronze ingot 8
+- [ ] Needs new items: copper dust 7 + tin dust -> bronze dust 8 (12 s)
+- [ ] Steel chain, needs new ingots and dusts: wrought iron 2 + coal dust -> carbon steel 2; carbon steel 2 + coal dust
+      -> cast iron 2; (stainless steel needs chromium: Technic only)
+- [ ] Decide: register our own wrought iron / carbon steel / cast iron items, or leave the steel chain to Technic
+- [ ] Brass (copper 2 + zinc -> brass 3) needs zinc: Technic only, unless basic_materials brass + a zinc source exist
+- [ ] Silicon wafer (sand 2 + coal dust 2), doped wafer (+ gold dust), rubber (raw latex 4 + coal dust 2): Technic
+      progression, via the import only
+- [ ] ice + empty bucket -> water bucket (needs the `bucket` mod; guarded)
+
+### Optional extras Technic's grindings feed (not planned unless wanted)
+- [ ] Extractor machine (tree grindings -> dye) and Centrifuge/separator (grindings -> sawdust + dye)
+- [ ] Freezer and the other Technic recipe types
+
+### Tests and docs
+- [ ] Headless tests for each recipe family in all three configurations: Technic absent (own items registered and
+      craftable through the machines), Technic present (its recipes imported, our items aliased, none duplicated)
+- [ ] A test that every registered recipe's inputs and outputs are real items
+- [ ] README recipe table (own vs Technic) and the new setting
+
 ## Batteries (`vaultnet_power`)
 - [x] Small / Medium / Large batteries buffering the network power budget, charge kept when dug
 
