@@ -62,15 +62,18 @@ for i, c in enumerate(LIGHTS, 1):
 # Everything uses ONE material and ONE texture per mesh: the engine does not give
 # separate textures to separate .obj materials reliably, so the LED / slot-interior
 # faces are UV-mapped onto a reserved texel of the same texture instead.
+DISK_DARKEN = 0.55   # the disks glow in the bay (entity glow), so the texture is kept dark
 for i, body in enumerate(BODIES, 1):
     im = Image.new("RGBA", (16, 16))
     for y in range(16):
         for x in range(16):
-            k = 0.9 + random.random() * 0.1
+            k = (0.9 + random.random() * 0.1) * DISK_DARKEN
             if y in (7,): k *= 1.1
             if y in (8,): k *= 0.85
             im.putpixel((x, y), shade(body, k) + (255,))
     im.save(f"{tex}/vaultnet_drives_disk{i}.png")
+
+# (the LED is a separate overlay below, so darkening the disk does not dim it)
 
 # LED overlay: paints only the reserved texel (15, 0), where the LED faces point.
 LED_TEXEL = (15, 0)
