@@ -16,7 +16,7 @@ local STATUS_TEXT = {
 local function animated(texture, length)
 	return {
 		name = texture,
-		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = length},
+		animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 32, length = length},
 	}
 end
 
@@ -24,12 +24,12 @@ local show_formspec -- defined below
 
 -- Nodes -----------------------------------------------------------------------
 
-local function register(name, desc, glow, extra)
+local function register(name, desc, tile, extra)
 	local def = {
 		description = desc,
 		drawtype = "mesh",
 		mesh = "vaultnet_core_core.obj",
-		tiles = {"vaultnet_core_frame.png", glow},
+		tiles = {tile}, -- one texture: metal frame on top, crystal glow below
 		paramtype = "light",
 		selection_box = FULL,
 		collision_box = FULL,
@@ -65,17 +65,17 @@ local function register(name, desc, glow, extra)
 	core.register_node(name, def)
 end
 
-register(IDLE, "VaultNet Core", "vaultnet_core_glow_idle.png")
+register(IDLE, "VaultNet Core", "vaultnet_core_core.png")
 
 register(ACTIVE, "VaultNet Core (active)",
-	animated("vaultnet_core_glow_active.png", 3.2), {
+	animated("vaultnet_core_core_active.png", 3.2), {
 	drop = IDLE,
 	light_source = 8,
 	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},
 })
 
 register(CONFLICT, "VaultNet Core (conflict)",
-	animated("vaultnet_core_glow_conflict.png", 0.8), {
+	animated("vaultnet_core_core_conflict.png", 0.8), {
 	drop = IDLE,
 	light_source = 8,
 	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},

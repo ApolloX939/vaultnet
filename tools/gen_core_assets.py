@@ -1,5 +1,10 @@
 """VaultNet core model + textures. Usage: gen_core_assets.py <mod dir>
-Writes models/vaultnet_core_core.obj and the textures. Needs Pillow."""
+Writes models/vaultnet_core_core.obj and the textures. Needs Pillow.
+
+One material, one texture per variant (the engine does not reliably give separate
+.obj materials separate textures): each texture is 16 x 32, the metal frame in the
+top 16 rows and the crystal glow in the bottom 16. Frame faces map to the top half,
+crystal faces to the bottom half."""
 import math, os, sys
 from PIL import Image
 
@@ -8,8 +13,11 @@ os.makedirs(f"{mod}/models", exist_ok=True)
 os.makedirs(f"{mod}/textures", exist_ok=True)
 
 # ---- model -------------------------------------------------------------
-# Material order = tile order in the node def: frame (1), glow (2).
-verts, uvs, norms, faces = [], [], [], {"frame": [], "glow": []}
+verts, uvs, norms, faces = [], [], [], []
+
+AH = 32  # atlas height in texels
+frame_uv = lambda u, v: (u, 0.5 + v * 0.5)   # top half
+glow_uv = lambda u, v: (u, v * 0.5)          # bottom half
 
 def idx(lst, v):
     v = tuple(round(c, 5) for c in v)
@@ -18,8 +26,9 @@ def idx(lst, v):
     return lst.index(v) + 1
 
 def add_face(mat, pts, uv, n):
+    uv = [(frame_uv if mat == "frame" else glow_uv)(*t) for t in uv]
     ids = [(idx(verts, p), idx(uvs, t), idx(norms, n)) for p, t in zip(pts, uv)]
-    faces[mat].append(ids)
+    faces.append(ids)
 
 def box(x0, y0, z0, x1, y1, z1):
     # triplanar UVs: one texture tile per node, so texel density is uniform
@@ -66,10 +75,8 @@ with open(f"{mod}/models/vaultnet_core_core.obj", "w") as f:
     for v in verts: f.write("v %g %g %g\n" % v)
     for t in uvs: f.write("vt %g %g\n" % t)
     for n in norms: f.write("vn %g %g %g\n" % n)
-    for mat in ("frame", "glow"):
-        f.write(f"o {mat}\nusemtl {mat}\n")
-        for face in faces[mat]:
-            f.write("f " + " ".join("%d/%d/%d" % t for t in face) + "\n")
+    for face in faces:   # one material only
+        f.write("f " + " ".join("%d/%d/%d" % t for t in face) + "\n")
 
 # ---- textures ----------------------------------------------------------
 def frame_tex():
@@ -82,8 +89,6 @@ def frame_tex():
             elif (x + y) % 6 == 0: c = (0x44, 0x49, 0x54)
             im.putpixel((x, y), c + (255,))
     return im
-
-frame_tex().save(f"{mod}/textures/vaultnet_core_frame.png")
 
 def glow_frame(rgb, f, frames, flash=False):
     """Pulsing crystal: bright rings drifting from the base to the tip."""
@@ -100,13 +105,20 @@ def glow_frame(rgb, f, frames, flash=False):
             im.putpixel((x, y), tuple(min(255, int(c * k)) for c in rgb) + (255,))
     return im
 
+def atlas(glow_img):
+    """16 x 32: frame on top, glow below."""
+    im = Image.new("RGBA", (16, AH))
+    im.paste(frame_tex(), (0, 0))
+    im.paste(glow_img, (0, 16))
+    return im
+
 def strip(rgb, frames, flash, path):
-    s = Image.new("RGBA", (16, 16 * frames))
+    s = Image.new("RGBA", (16, AH * frames))
     for f in range(frames):
-        s.paste(glow_frame(rgb, f, frames, flash), (0, 16 * f))
+        s.paste(atlas(glow_frame(rgb, f, frames, flash)), (0, AH * f))
     s.save(path)
 
 # idle: dim, static
-glow_frame((0x30, 0x40, 0x50), 0, 1).save(f"{mod}/textures/vaultnet_core_glow_idle.png")
-strip((0x30, 0xa0, 0xff), 16, False, f"{mod}/textures/vaultnet_core_glow_active.png")
-strip((0xff, 0x28, 0x28), 4, True, f"{mod}/textures/vaultnet_core_glow_conflict.png")
+atlas(glow_frame((0x30, 0x40, 0x50), 0, 1)).save(f"{mod}/textures/vaultnet_core_core.png")
+strip((0x30, 0xa0, 0xff), 16, False, f"{mod}/textures/vaultnet_core_core_active.png")
+strip((0xff, 0x28, 0x28), 4, True, f"{mod}/textures/vaultnet_core_core_conflict.png")

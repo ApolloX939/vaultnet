@@ -13,6 +13,6 @@ The central node of a network.
   sees their own access.
 - Only owner / admins can dig the core.
 
-Assets are generated: `tools/gen_core_assets.py vaultnet_core` (needs Pillow).
+Assets are generated: `tools/gen_core_assets.py vaultnet_core` (needs Pillow). The mesh is single-material: each variant has one 16x32 texture (metal frame on top, crystal glow below).
 Includes a temporary power handler that treats everything as powered when
 `vaultnet_require_power` is on, until `vaultnet_power` exists.
