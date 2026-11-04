@@ -22,9 +22,9 @@
 - [x] `vaultnet_io`: Terminal, Inserter and Exporter
 - [x] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [x] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
-- [ ] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
-- [ ] `vaultnet_power_technic`: adapter for Technic
-- [ ] `vaultnet_power_techage`: adapter for Techage
+- [x] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
+- [x] `vaultnet_power_technic`: adapter for Technic
+- [x] `vaultnet_power_techage`: adapter for Techage
 - [ ] Each sub mod has its own `mod.conf`, `settingtypes.txt`, and textures/models folders
 
 ## Drives
@@ -89,21 +89,21 @@
 - [x] Optional range limit setting
 
 ## Power (`require_power`)
-- [ ] Setting `require_power` (bool, default `false`)
-- [ ] When enabled, every part consumes power
-- [ ] Standalone power fallback inside the modpack, so no extra mods are needed
-- [ ] Technic adapter
-- [ ] Techage adapter
-- [ ] Parts show unpowered/inactive state
+- [x] Setting `require_power` (bool, default `false`)
+- [x] When enabled, every part consumes power
+- [x] Standalone power fallback inside the modpack, so no extra mods are needed
+- [x] Technic adapter
+- [x] Techage adapter
+- [x] Parts show unpowered/inactive state
 
 ## Config Settings
-- [ ] `require_power` (default false)
+- [x] `require_power` (default false)
 - [x] Wireless relay enable/disable
 - [x] Autocrafter enable/disable
-- [ ] Other tunables (tick rates, drive capacities, relay range)
+- [x] Other tunables (tick rates, drive capacities, relay range, power output and use)
 
 ## Docs and Polish
 - [ ] README for the modpack and for each sub mod
 - [ ] Crafting recipes for all parts that use only base-game items
 - [ ] Textures and models (cables, drives, bay, core, I/O, relay)
-- [ ] Testing: metadata round-trip, multi-player access, power on/off, relay forceload
+- [x] Testing: metadata round-trip, power on/off, relay forceload (`tools/run_tests.sh`, headless; multi-player access is only covered at API level)

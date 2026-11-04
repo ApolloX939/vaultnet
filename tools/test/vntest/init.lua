@@ -14,6 +14,15 @@ if core.get_modpath("technic") then
 	technic.register_machine("LV", "vntest:producer", technic.producer)
 end
 
+if core.get_modpath("techage") then
+	-- a generator for the Techage test: it holds a big charge we can draw from
+	core.register_node("vntest:tgen", {
+		description = "test generator", groups = {cracky = 1}, paramtype2 = "facedir",
+		get_generator_data = function() return {level = 0, perf = 100, capa = 200} end,
+	})
+	networks.power.register_nodes({"vntest:tgen"}, techage.ElectricCable, "gen", {"F", "B"})
+end
+
 local function abm_action(label)
 	for _, a in ipairs(core.registered_abms) do
 		if a.label == label then return a.action end
@@ -397,6 +406,30 @@ local function main_power()
 		check("technic: insufficient supply -> nothing powered", not vaultnet.is_powered(P.term) and not vaultnet.is_powered(P.core))
 		net:apply_status(net:status())
 		check("technic: unpowered parts look inactive", core.get_node(P.term).name == "vaultnet_io:terminal")
+	elseif backend == "techage" then
+		local Cable = techage.ElectricCable
+		-- part -- cable -- generator along z, all three connected through tubelib2
+		local part, cab, gen = P.term, at(3, 0, 1), at(3, 0, 2)
+		core.set_node(cab, {name = "techage:electric_cableS"})
+		core.set_node(gen, {name = "vntest:tgen"})
+		Cable:after_place_node(part)
+		Cable:after_place_node(gen)
+		check("techage: part has a power network entry", core.registered_nodes["vaultnet_io:terminal"].networks ~= nil
+			and core.registered_nodes["vaultnet_io:terminal"].networks.ele1.ntype == "con")
+		local draw = abm_action("VaultNet techage power draw")
+		check("techage: no power yet -> unpowered", not vaultnet.is_powered(part))
+		draw(part, core.get_node(part))
+		check("techage: still unpowered when the network is empty", not vaultnet.is_powered(part))
+		local provided = networks.power.provide_power(gen, Cable, 3, 100)
+		check("techage: generator fills the network", provided and provided > 0, provided)
+		draw(part, core.get_node(part))
+		check("techage: part draws power and counts as powered", vaultnet.is_powered(part))
+		check("techage: grace period recorded", core.get_meta(part):get_int("vn_power_until") >= core.get_gametime())
+		-- drain: take everything, next draw fails
+		networks.power.consume_power(part, Cable, nil, 1000)
+		core.get_meta(part):set_int("vn_power_until", 0)
+		draw(part, core.get_node(part))
+		check("techage: drained network -> unpowered again", not vaultnet.is_powered(part))
 	else
 		check("power: backend handler decides: parts unpowered without supply", not vaultnet.is_powered(P.term))
 	end

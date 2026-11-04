@@ -37,7 +37,7 @@ link() { [ -e "$1" ] && ln -sfn "$1" "$WORK/world/worldmods/$(basename "$1")" ||
 if [ "$1" = "--technic" ]; then
   for m in technic/technic technic/technic_worldgen pipeworks xcompat fakelib techage_modpack/basic_materials; do link "$MODS_DIR/$m"; done
 elif [ "$1" = "--techage" ]; then
-  for m in techage_modpack/techage techage_modpack/networks techage_modpack/tubelib2 techage_modpack/lcdlib techage_modpack/basic_materials techage_modpack/doclib techage_modpack/safer_lua techage_modpack/minecart techage_modpack/signs_bot techage_modpack/nanobasic; do link "$MODS_DIR/$m"; done
+  for m in techage_modpack/techage techage_modpack/networks techage_modpack/tubelib2 techage_modpack/lcdlib techage_modpack/basic_materials techage_modpack/doclib techage_modpack/safer_lua techage_modpack/minecart xcompat fakelib; do link "$MODS_DIR/$m"; done
 fi
 cp -r "$HERE/tools/test/vntest" "$WORK/world/worldmods/vntest"
 {
