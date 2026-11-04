@@ -23,8 +23,8 @@
 - [x] `vaultnet_autocrafter`: autocrafter (opt-in)
 - [x] `vaultnet_wireless`: wireless relay (opt-in, forceloads both ends)
 - [x] `vaultnet_power`: `require_power` concept, adds power consumption to all parts
-- [x] `vaultnet_power_technic`: adapter for Technic
-- [x] `vaultnet_power_techage`: adapter for Techage
+- [x] `vaultnet_power_technic`: Power Adapters for Technic (LV, MV, HV)
+- [x] `vaultnet_power_techage`: Power Adapter for Techage
 - [ ] Each sub mod has its own `mod.conf`, `settingtypes.txt`, and textures/models folders
 
 ## Drives
@@ -92,8 +92,8 @@
 - [x] Setting `require_power` (bool, default `false`)
 - [x] When enabled, every part consumes power
 - [x] Standalone power fallback inside the modpack, so no extra mods are needed
-- [x] Technic adapter
-- [x] Techage adapter
+- [x] Technic Power Adapter (LV, MV, HV)
+- [x] Techage Power Adapter
 - [x] Parts show unpowered/inactive state
 
 ## Config Settings

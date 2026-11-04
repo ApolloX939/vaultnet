@@ -1,0 +1,7 @@
+# Technic EU drawn for each unit of VaultNet power (units per second).
+vaultnet_power_technic_eu_per_unit (EU per unit) int 10 1 10000
+
+# Most units per second one adapter of each tier can deliver to the VaultNet network.
+vaultnet_power_technic_capacity_lv (LV adapter capacity) int 40 1 100000
+vaultnet_power_technic_capacity_mv (MV adapter capacity) int 200 1 100000
+vaultnet_power_technic_capacity_hv (HV adapter capacity) int 1000 1 100000

@@ -1,7 +1,3 @@
-# Which power source VaultNet parts draw from when "require_power" is on.
-# auto: Technic if present (vaultnet_power_technic), else Techage (vaultnet_power_techage), else the built-in generators.
-vaultnet_power_backend (Power backend) enum auto auto,standalone,technic,techage
-
 # Scales how much power every part draws (1.0 = defaults).
 vaultnet_power_use_multiplier (Power use multiplier) float 1.0 0.1 100.0
 

@@ -7,11 +7,14 @@ end
 
 if core.get_modpath("technic") then
 	-- a producer for the Technic test: supply is set through its meta
-	core.register_node("vntest:producer", {
-		description = "test producer", groups = {technic_machine = 1, technic_lv = 1},
-		on_construct = function(pos) core.get_meta(pos):set_int("LV_EU_supply", 0) end,
-	})
-	technic.register_machine("LV", "vntest:producer", technic.producer)
+	for _, tier in ipairs({"LV", "MV", "HV"}) do
+		local lower = tier:lower()
+		core.register_node("vntest:producer_" .. lower, {
+			description = "test producer " .. tier, groups = {technic_machine = 1, ["technic_" .. lower] = 1},
+			on_construct = function(pos) core.get_meta(pos):set_int(tier .. "_EU_supply", 0) end,
+		})
+		technic.register_machine(tier, "vntest:producer_" .. lower, technic.producer)
+	end
 end
 
 if core.get_modpath("techage") then
@@ -325,17 +328,15 @@ local function main_power()
 	core.get_meta(P.bay):get_inventory():set_stack("drives", 1, ItemStack("vaultnet_drives:drive1"))
 
 	check("power: toggle cable registered with require_power", core.registered_nodes["vaultnet_cables:toggle_on"] ~= nil)
-	check("power: a backend was selected", vaultnet.power and vaultnet.power.active ~= nil, vaultnet.power and vaultnet.power.active)
-	check("power: active backend is " .. (os.getenv and "set" or "?"), true)
 	local def_core = vaultnet.get_def("vaultnet_core:core")
 	check("power: parts declare consumption", vaultnet.power_use(def_core) == 10 and
 		vaultnet.power_use(vaultnet.get_def("vaultnet_drives:bay")) == 5 and
 		vaultnet.power_use(vaultnet.get_def("vaultnet_cables:cable")) == 0)
 
-	local backend = vaultnet.power.active
 	local net = vaultnet.get_network(P.core)
 	check("power: network has the generator", net:has(P.gen))
-	if backend == "standalone" then
+	do
+		-- standalone: fuel generator
 		check("power: no fuel -> status unpowered", net:status() == "unpowered", net:status())
 		check("power: unpowered network refuses storage", select(2, net:insert(ItemStack("default:dirt"))) == "unpowered")
 		net:apply_status(net:status())
@@ -361,77 +362,100 @@ local function main_power()
 		check("power: parts look active when powered", core.get_node(P.core).name == "vaultnet_core:core_active"
 			and core.get_node(P.term).name == "vaultnet_io:terminal_active",
 			core.get_node(P.core).name .. " " .. core.get_node(P.term).name)
-		-- running out
 		core.get_meta(P.gen):set_int("burn_left", 1)
 		inv:set_stack("fuel", 1, ItemStack(""))
 		gen_tick(P.gen, core.get_node(P.gen))
 		check("power: generator stops when fuel runs out", core.get_node(P.gen).name == "vaultnet_power:generator")
 		net = vaultnet.get_network(P.core); net.power_cache = nil
 		check("power: network unpowered again", net:status() == "unpowered", net:status())
-		-- generator only burns when needed: nothing to power -> removing demand
 		check("power: formspec info available", vaultnet.power_info(net).demand == 20)
-		-- inserter does nothing without power
 		local cin = at(1, 0, 3)
 		core.set_node(cin, {name = "default:chest"})
 		core.get_meta(cin):get_inventory():add_item("main", ItemStack("default:cobble 8"))
 		core.get_meta(P.ins):set_string("lists", core.serialize({main = true}))
 		abm_action("VaultNet inserter/exporter")(P.ins, core.get_node(P.ins))
 		check("power: inserter idle without power", core.get_meta(cin):get_inventory():get_stack("main", 1):get_count() == 8)
-		-- solar panel at night/day isn't deterministic in a headless world; just check the API
 		check("power: solar supply function works", type(vaultnet.get_def("vaultnet_power:solar").power_supply(P.solar)) == "number")
-	elseif backend == "technic" then
-		-- a real Technic LV network: LV cables above the parts, a switching station on one
-		-- of them, and a test producer (Technic's own generators need fuel or sun)
-		for x = 0, 3 do core.set_node(at(x, 1, 0), {name = "technic:lv_cable0"}) end
-		core.set_node(at(1, 2, 0), {name = "technic:switching_station"})
-		core.set_node(at(4, 1, 0), {name = "vntest:producer"})
-		check("technic: parts registered as LV receivers", technic.machines.LV["vaultnet_io:terminal"] == "RE"
-			and technic.machines.LV["vaultnet_core:core_active"] == "RE" and technic.machines.LV["vaultnet_io:exporter_pz"] == "RE")
-		check("technic: nodes are technic machines (group)", core.get_item_group("vaultnet_core:core", "technic_machine") == 1)
-		check("technic: no supply -> parts unpowered", not vaultnet.is_powered(P.term))   -- also teaches the part its demand
-		check("technic: demand set on the part", core.get_meta(P.term):get_int("LV_EU_demand") == 2,
-			core.get_meta(P.term):get_int("LV_EU_demand"))
-		check("technic: core demand set", (vaultnet.is_powered(P.core) and false) or core.get_meta(P.core):get_int("LV_EU_demand") == 10)
-		local station = abm_action("Switching Station")
-		local timeout = abm_action("Machines: timeout check")
-		core.get_meta(at(4, 1, 0)):set_int("LV_EU_supply", 500)
-		station(at(1, 2, 0), core.get_node(at(1, 2, 0)))
-		check("technic: supply >= demand -> terminal gets its EU", core.get_meta(P.term):get_int("LV_EU_input") == 2,
-			core.get_meta(P.term):get_int("LV_EU_input"))
-		check("technic: is_powered true with supply", vaultnet.is_powered(P.term) and vaultnet.is_powered(P.core))
-		local net = vaultnet.get_network(P.core)
-		check("technic: network status ok when the core is powered", net:status() == "ok", net:status())
-		core.get_meta(at(4, 1, 0)):set_int("LV_EU_supply", 5)
-		station(at(1, 2, 0), core.get_node(at(1, 2, 0)))
-		check("technic: insufficient supply -> nothing powered", not vaultnet.is_powered(P.term) and not vaultnet.is_powered(P.core))
-		net:apply_status(net:status())
-		check("technic: unpowered parts look inactive", core.get_node(P.term).name == "vaultnet_io:terminal")
-	elseif backend == "techage" then
+	end
+
+	if core.get_modpath("vaultnet_power_technic") then
+		-- Technic: an adapter per tier, each on its own LV/MV/HV cable + switching station + test producer
+		local function tier_test(tier, id, ox, cap)
+			local lower = tier:lower()
+			local a_idle = "vaultnet_power_technic:adapter_" .. id
+			-- a fresh little network: core, bay, terminal, adapter, with its own cables
+			local c = at(ox, 0, 6)
+			local adapter = at(ox + 1, 0, 6)
+			core.set_node(c, {name = "vaultnet_core:core"})
+			vaultnet.access.init(c, "tester")
+			core.set_node(at(ox, 0, 7), {name = "vaultnet_io:terminal"})
+			core.set_node(adapter, {name = a_idle})
+			local cab = at(ox + 1, 1, 6)           -- technic cable above the adapter
+			core.set_node(cab, {name = "technic:" .. lower .. "_cable0"})
+			core.set_node(at(ox + 1, 2, 6), {name = "technic:switching_station"})
+			core.set_node(at(ox + 2, 1, 6), {name = "vntest:producer_" .. lower})
+			core.get_meta(at(ox + 2, 1, 6)):set_int(tier .. "_EU_supply", 100000)
+			local n = vaultnet.get_network(c)
+			check("technic " .. tier .. ": adapter is in the network", n:has(adapter))
+			check("technic " .. tier .. ": adapter registered as a " .. tier .. " machine", technic.machines[tier][a_idle] == "RE")
+			check("technic " .. tier .. ": status unpowered at first", n:status() == "unpowered", n:status())
+			local ad = abm_action("VaultNet technic power adapter")
+			local station = abm_action("Switching Station")
+			n.power_cache = nil
+			ad(adapter, core.get_node(adapter))
+			local demand_units = vaultnet.power.budget(n)
+			local _, demand = vaultnet.power.budget(n)
+			local want_units = math.min(cap, demand)
+			check("technic " .. tier .. ": adapter asks for the demand (capped at capacity)",
+				core.get_meta(adapter):get_int(tier .. "_EU_demand") == want_units * 10,
+				core.get_meta(adapter):get_int(tier .. "_EU_demand") .. " vs " .. want_units * 10)
+			station(at(ox + 1, 2, 6), core.get_node(at(ox + 1, 2, 6)))
+			check("technic " .. tier .. ": switching station supplies the adapter",
+				core.get_meta(adapter):get_int(tier .. "_EU_input") == want_units * 10, core.get_meta(adapter):get_int(tier .. "_EU_input"))
+			n.power_cache = nil
+			check("technic " .. tier .. ": network powered", n:status() == "ok" and demand <= cap, n:status() .. " demand " .. demand)
+			ad(adapter, core.get_node(adapter))
+			check("technic " .. tier .. ": adapter node shows active", core.get_node(adapter).name == a_idle .. "_active")
+			-- grid dies
+			core.get_meta(at(ox + 2, 1, 6)):set_int(tier .. "_EU_supply", 0)
+			station(at(ox + 1, 2, 6), core.get_node(at(ox + 1, 2, 6)))
+			n.power_cache = nil
+			check("technic " .. tier .. ": grid down -> unpowered", n:status() == "unpowered", n:status())
+			-- a part is NOT a technic machine
+			check("technic " .. tier .. ": ordinary parts are not technic machines", technic.machines[tier]["vaultnet_io:terminal"] == nil)
+		end
+		tier_test("LV", "lv", 0, 40)
+		tier_test("MV", "mv", 6, 200)
+		tier_test("HV", "hv", 12, 1000)
+	end
+
+	if core.get_modpath("vaultnet_power_techage") then
 		local Cable = techage.ElectricCable
-		-- part -- cable -- generator along z, all three connected through tubelib2
-		local part, cab, gen = P.term, at(3, 0, 1), at(3, 0, 2)
+		local c = at(0, 0, 10)
+		local adapter, cab, gen = at(0, 0, 11), at(0, 0, 12), at(0, 0, 13) -- along z: the test generator connects on its front/back
+		core.set_node(c, {name = "vaultnet_core:core"})
+		vaultnet.access.init(c, "tester")
+		core.set_node(adapter, {name = "vaultnet_power_techage:adapter"})
 		core.set_node(cab, {name = "techage:electric_cableS"})
 		core.set_node(gen, {name = "vntest:tgen"})
-		Cable:after_place_node(part)
+		Cable:after_place_node(adapter)
 		Cable:after_place_node(gen)
-		check("techage: part has a power network entry", core.registered_nodes["vaultnet_io:terminal"].networks ~= nil
-			and core.registered_nodes["vaultnet_io:terminal"].networks.ele1.ntype == "con")
-		local draw = abm_action("VaultNet techage power draw")
-		check("techage: no power yet -> unpowered", not vaultnet.is_powered(part))
-		draw(part, core.get_node(part))
-		check("techage: still unpowered when the network is empty", not vaultnet.is_powered(part))
-		local provided = networks.power.provide_power(gen, Cable, 3, 100)
-		check("techage: generator fills the network", provided and provided > 0, provided)
-		draw(part, core.get_node(part))
-		check("techage: part draws power and counts as powered", vaultnet.is_powered(part))
-		check("techage: grace period recorded", core.get_meta(part):get_int("vn_power_until") >= core.get_gametime())
-		-- drain: take everything, next draw fails
-		networks.power.consume_power(part, Cable, nil, 1000)
-		core.get_meta(part):set_int("vn_power_until", 0)
-		draw(part, core.get_node(part))
-		check("techage: drained network -> unpowered again", not vaultnet.is_powered(part))
-	else
-		check("power: backend handler decides: parts unpowered without supply", not vaultnet.is_powered(P.term))
+		local n = vaultnet.get_network(c)
+		check("techage: adapter is in the network", n:has(adapter))
+		check("techage: adapter is an electric network consumer",
+			core.registered_nodes["vaultnet_power_techage:adapter"].networks.ele1.ntype == "con")
+		check("techage: ordinary parts are not techage nodes", core.registered_nodes["vaultnet_core:core"].networks == nil)
+		check("techage: unpowered at first", n:status() == "unpowered", n:status())
+		local ad = abm_action("VaultNet techage power adapter")
+		n.power_cache = nil
+		ad(adapter, core.get_node(adapter))
+		check("techage: empty grid delivers nothing", n:status() == "unpowered")
+		networks.power.provide_power(gen, Cable, 3, 100)
+		n.power_cache = nil
+		ad(adapter, core.get_node(adapter))
+		n.power_cache = nil
+		check("techage: with power in the grid the adapter delivers", n:status() == "ok", n:status())
+		check("techage: adapter shows active", core.get_node(adapter).name == "vaultnet_power_techage:adapter_active")
 	end
 
 	local failed = 0

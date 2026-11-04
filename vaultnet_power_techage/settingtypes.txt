@@ -1,0 +1,5 @@
+# Techage power units drawn per 2 second cycle for each VaultNet unit per second the network needs.
+vaultnet_power_techage_scale (Techage units per VaultNet unit) float 0.5 0.01 1000.0
+
+# Most units per second the Techage adapter can deliver to the VaultNet network.
+vaultnet_power_techage_capacity (Adapter capacity) int 60 1 100000

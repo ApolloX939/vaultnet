@@ -1,6 +1,4 @@
--- Standalone backend: the whole network shares one power budget. Generators (while
--- burning fuel) and solar panels (in daylight) add supply; every consuming part adds
--- demand. If supply >= demand the network is powered, otherwise nothing is.
+-- Built-in power sources: a fuel generator and a solar panel.
 
 local P = vaultnet.power
 local GEN_OUT = tonumber(core.settings:get("vaultnet_power_generator_output")) or 60
@@ -8,45 +6,6 @@ local SOLAR_OUT = tonumber(core.settings:get("vaultnet_power_solar_output")) or 
 
 local GEN, GEN_ON = "vaultnet_power:generator", "vaultnet_power:generator_active"
 local SOLAR = "vaultnet_power:solar"
-
--- Budget ------------------------------------------------------------------------
-
--- supply, demand of a network (units per second).
-function P.budget(net)
-	local supply, demand = 0, 0
-	for _, pos in pairs(net.nodes) do
-		local def = vaultnet.get_def(core.get_node(pos).name)
-		if def then
-			if def.power_supply then supply = supply + (def.power_supply(pos) or 0) end
-			demand = demand + vaultnet.power_use(def)
-		end
-	end
-	return supply, demand
-end
-
--- Cached for a game second per network object (is_powered is called a lot).
-local function powered(net)
-	local now = core.get_gametime()
-	local c = net.power_cache
-	if not c or c.t ~= now then
-		local supply, demand = P.budget(net)
-		c = {t = now, supply = supply, demand = demand, ok = supply >= demand}
-		net.power_cache = c
-	end
-	return c
-end
-
-function vaultnet.power_info(net)
-	local c = powered(net)
-	return {supply = c.supply, demand = c.demand}
-end
-
-P.register_backend("standalone", {
-	handler = function(pos)
-		local net = vaultnet.get_network(pos)
-		return net ~= nil and powered(net).ok
-	end,
-})
 
 -- Generator ------------------------------------------------------------------------
 

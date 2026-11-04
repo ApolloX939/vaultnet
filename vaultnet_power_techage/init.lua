@@ -1,67 +1,96 @@
--- Techage backend for vaultnet_power. Every part that consumes power becomes a consumer
--- on Techage's electric cable network ("ele1"): put a Techage electric cable (or any
--- node of that network) against a part and it draws from the network's generators and
--- storage. Techage works in 2 second cycles, so a part takes ceil(units per second / 2)
--- units each cycle; if it gets them all it counts as powered for the next few seconds.
+-- Techage power adapter. It connects the VaultNet network to a Techage electric network:
+-- put a Techage electric cable (or any node of that network) against it and it draws from
+-- the network's generators and storage, handing what it gets to the VaultNet network as
+-- supply. Only the adapter is a Techage consumer; no other VaultNet part is.
+--
+-- Techage works in 2 second cycles. Every cycle the adapter asks vaultnet.power.request(pos)
+-- how many units per second the network wants from it (at most its capacity) and tries to
+-- consume ceil(units * scale) Techage units. If it gets them all it delivers those units for
+-- the next few seconds, otherwise nothing (like a Technic machine, all or nothing).
 
 local P = vaultnet.power
-local CYCLE = 2          -- seconds between draws
-local GRACE = 4          -- seconds a part stays powered after a successful draw
+local CYCLE = 2
+local GRACE = 4
+local SCALE = tonumber(core.settings:get("vaultnet_power_techage_scale")) or 0.5
+local CAP = tonumber(core.settings:get("vaultnet_power_techage_capacity")) or 60
 
-local function per_cycle(def)
-	return math.max(1, math.ceil(vaultnet.power_use(def) * CYCLE / 4))
-end
+local IDLE, ACTIVE = "vaultnet_power_techage:adapter", "vaultnet_power_techage:adapter_active"
+local pre = "vaultnet_power_adapter_ta"
 
 local function cable() return techage.ElectricCable end
 
-P.register_backend("techage", {
-	available = function()
-		return rawget(_G, "techage") ~= nil and techage.ElectricCable ~= nil
-			and rawget(_G, "networks") ~= nil and networks.power ~= nil
-	end,
+local function delivered(pos)
+	local meta = core.get_meta(pos)
+	if meta:get_int("vn_supply_until") < core.get_gametime() then return 0 end
+	return meta:get_int("vn_supply")
+end
 
-	init = function()
-		local names = {}
-		for name, def in pairs(core.registered_nodes) do
-			if def.vaultnet and vaultnet.power_use(def.vaultnet) > 0 then names[#names + 1] = name end
-		end
-		networks.power.register_nodes(names, cable(), "con")
-		for _, name in ipairs(names) do
-			local def = core.registered_nodes[name]
-			local after_place, after_dig = def.after_place_node, def.after_dig_node
-			core.override_item(name, {
-				after_place_node = function(pos, ...)
-					if after_place then after_place(pos, ...) end
-					cable():after_place_node(pos)
-				end,
-				after_dig_node = function(pos, ...)
-					if after_dig then after_dig(pos, ...) end
-					cable():after_dig_node(pos)
-				end,
-			})
-		end
-		core.log("action", ("[vaultnet_power_techage] %d part nodes registered as consumers"):format(#names))
-	end,
+local function register(name, active)
+	local side = "vaultnet_power_adapter_side.png"
+	core.register_node(name, {
+		description = "VaultNet Power Adapter (Techage)" .. (active and " (active)" or ""),
+		paramtype2 = "4dir",
+		tiles = {pre .. "_top.png", side, side, side, side,
+			active and {
+				name = pre .. "_front_active.png",
+				animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 1.6},
+			} or (pre .. "_front.png")},
+		inventory_image = pre .. "_icon.png",
+		wield_image = pre .. "_icon.png",
+		groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = active and 1 or nil},
+		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
+		light_source = active and 4 or nil,
+		drop = IDLE,
+		vaultnet = {
+			role = "power",
+			power_adapter = {capacity = CAP},
+			power_supply = delivered,
+		},
+		after_place_node = function(pos) cable():after_place_node(pos) end,
+		after_dig_node = function(pos) cable():after_dig_node(pos) end,
+	})
+end
 
-	handler = function(pos)
-		return core.get_meta(pos):get_int("vn_power_until") >= core.get_gametime()
-	end,
-})
+register(IDLE, false)
+register(ACTIVE, true)
 
--- Draw power for every part, once per cycle.
+-- A Techage consumer on the electric network ("ele1"), on every side.
+networks.power.register_nodes({IDLE, ACTIVE}, cable(), "con")
+
 core.register_abm({
-	label = "VaultNet techage power draw",
-	nodenames = {"group:vaultnet_device"},
+	label = "VaultNet techage power adapter",
+	nodenames = {IDLE, ACTIVE},
 	interval = CYCLE,
 	chance = 1,
 	action = function(pos, node)
-		if P.active ~= "techage" then return end
-		local def = vaultnet.get_def(node.name)
-		if not def or vaultnet.power_use(def) <= 0 then return end
-		local need = per_cycle(def)
-		local got = networks.power.consume_power(pos, cable(), nil, need)
-		if got >= need then
-			core.get_meta(pos):set_int("vn_power_until", core.get_gametime() + GRACE)
+		local meta = core.get_meta(pos)
+		local units = vaultnet.require_power and P.request(pos) or 0
+		if units > 0 then
+			local need = math.ceil(units * SCALE)
+			if networks.power.consume_power(pos, cable(), nil, need) >= need then
+				meta:set_int("vn_supply", units)
+				meta:set_int("vn_supply_until", core.get_gametime() + GRACE)
+			end
 		end
+		local got = delivered(pos)
+		local want = got > 0 and ACTIVE or IDLE
+		if node.name ~= want then
+			node.name = want
+			core.swap_node(pos, node)
+		end
+		local text = ("VaultNet Power Adapter (Techage)\nDelivering %d of %d units/s"):format(got, units)
+		if meta:get_string("infotext") ~= text then meta:set_string("infotext", text) end
 	end,
 })
+
+if core.get_modpath("default") then
+	local S, C = "default:steel_ingot", "default:copper_ingot"
+	core.register_craft({
+		output = IDLE,
+		recipe = {
+			{S, "techage:electric_cableS", S},
+			{C, "default:mese_crystal", C},
+			{S, "techage:electric_cableS", S},
+		},
+	})
+end

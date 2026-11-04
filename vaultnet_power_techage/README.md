@@ -1,11 +1,11 @@
 # vaultnet_power_techage
 
-Techage adapter for `vaultnet_power` (used when `vaultnet_require_power` is on and the backend
-setting is `auto` or `techage`; `auto` prefers Technic when both are installed).
+The Techage **Power Adapter** for `vaultnet_power`: `vaultnet_power_techage:adapter`. Only the adapter
+connects to Techage cables; no other VaultNet part is a Techage consumer.
 
-Every part that consumes power is registered as a consumer on Techage's electric cable network.
-Put a Techage electric cable (or any node of that network) against a part and it draws from the
-network's generators and storage. Techage works in 2 second cycles, so a part takes
-ceil(units per second / 2) units per cycle (core 5, bay 3, terminal 1, Inserter/Exporter 2,
-autocrafter 4, relay 5 by default; scaled by `vaultnet_power_use_multiplier`). A part that gets
-its full draw counts as powered for the next 4 seconds; otherwise it looks inactive and does nothing.
+The adapter sits in the VaultNet network (cables connect to it like to any device) and has a Techage
+electric cable (or any node of that network) against it. Techage works in 2 second cycles: each cycle
+the adapter asks the network how many units per second it needs from it (what the other sources do not
+cover, at most 60) and tries to take ceil(units * `vaultnet_power_techage_scale`) Techage units (default
+scale 0.5, so 40 units/s costs 20 Techage units per cycle). If it gets them all it delivers those units
+for the next 4 seconds, otherwise nothing.
