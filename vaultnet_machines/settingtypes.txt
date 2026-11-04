@@ -1,0 +1,8 @@
+# Register the processing machines. Turn off to play without them (placed machines become unknown nodes).
+vaultnet_machines_enabled (Enable machines) bool true
+
+# How fast machines work (1.0 = recipe time as written).
+vaultnet_machines_speed (Machine speed) float 1.0 0.1 100.0
+
+# Import the grinding, compressing and alloy recipes of Technic when it is installed.
+vaultnet_machines_import_technic (Import Technic recipes) bool true

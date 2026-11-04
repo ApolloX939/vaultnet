@@ -243,6 +243,65 @@ local function main_normal()
 	check("autocrafter: status says what is missing", core.get_meta(P.craft):get_string("status"):find("Missing") ~= nil,
 		core.get_meta(P.craft):get_string("status"))
 
+	-- processing machines
+	do
+		local cnet = vaultnet.get_network(P.core)
+		local work = abm_action("VaultNet machine")
+		local function machine(name, at_pos, inputs, stock)
+			core.set_node(at_pos, {name = name})
+			local inv = core.get_meta(at_pos):get_inventory()
+			for i, n in ipairs(inputs) do inv:set_stack("inputs", i, ItemStack(n)) end
+			core.get_meta(at_pos):set_string("owner", "tester")
+			for _, s in ipairs(stock) do vaultnet.get_network(P.core):insert(ItemStack(s)) end
+			return at_pos
+		end
+		local function run(p, n) for _ = 1, n do work(p, core.get_node(p)) end end
+		local function count(item) return vaultnet.get_network(P.core):count_key(item) end
+
+		local sm = machine("vaultnet_machines:smelter", at(5, 0, 1), {"default:iron_lump"}, {"default:iron_lump 3"})
+		check("machines: smelter in the network", vaultnet.get_network(P.core):has(sm))
+		run(sm, 2)
+		check("machines: smelter still working after 2 s (3 s recipe)", count("default:steel_ingot") == 0 and core.get_meta(sm):get_int("working") == 1)
+		check("machines: working look", core.get_node(sm).name == "vaultnet_machines:smelter_active", core.get_node(sm).name)
+		run(sm, 1)
+		check("machines: smelter made a steel ingot, used 1 lump", count("default:steel_ingot") == 1 and count("default:iron_lump") == 2,
+			count("default:steel_ingot") .. " " .. count("default:iron_lump"))
+
+		local cobble0 = count("default:cobble")
+		local gr = machine("vaultnet_machines:grinder", at(6, 0, 1), {"default:cobble"}, {"default:cobble 2"})
+		run(gr, 3)
+		check("machines: grinder cobble -> gravel", count("default:gravel") == 1 and count("default:cobble") == cobble0 + 1, count("default:gravel") .. " " .. count("default:cobble"))
+
+		local co = machine("vaultnet_machines:compressor", at(7, 0, 1), {"default:sand"}, {"default:sand 5"})
+		run(co, 4)
+		check("machines: compressor 2 sand -> sandstone", count("default:sandstone") == 1 and count("default:sand") == 3, count("default:sandstone") .. " " .. count("default:sand"))
+
+		local al = machine("vaultnet_machines:alloy", at(8, 0, 1), {"default:tin_ingot", "default:copper_ingot"}, {"default:copper_ingot 9", "default:tin_ingot 2"})
+		run(al, 6)
+		check("machines: alloy 7 copper + 1 tin -> 8 bronze", count("default:bronze_ingot") == 8 and count("default:copper_ingot") == 2 and count("default:tin_ingot") == 1,
+			count("default:bronze_ingot") .. " " .. count("default:copper_ingot") .. " " .. count("default:tin_ingot"))
+		run(al, 2)
+		check("machines: missing ingredients -> idle, nothing taken", count("default:copper_ingot") == 2 and core.get_meta(al):get_int("working") == 0
+			and core.get_meta(al):get_string("status"):find("Missing") ~= nil, core.get_meta(al):get_string("status"))
+
+		local none = machine("vaultnet_machines:grinder", at(6, 0, 2), {}, {})
+		run(none, 1)
+		check("machines: unconfigured machine does nothing", core.get_meta(none):get_string("status") == "No recipe set")
+		-- idle vs working draw
+		local def = vaultnet.get_def("vaultnet_machines:grinder")
+		core.get_meta(none):set_int("working", 0)
+		local idle_draw = def.power_draw(none)
+		core.get_meta(none):set_int("working", 1)
+		check("machines: working draws far more than idle", idle_draw == 1 and def.power_draw(none) == 10, idle_draw .. " " .. def.power_draw(none))
+		local n_recipes = 0
+		for _ in pairs(vaultnet.machines.recipes.grinder) do n_recipes = n_recipes + 1 end
+		check("machines: recipe registry filled", n_recipes >= 11, n_recipes)
+		if core.get_modpath("technic") then
+			check("machines: Technic grinding recipes imported", n_recipes > 20, n_recipes)
+		end
+		for _, p in ipairs({sm, gr, co, al, none}) do core.remove_node(p) end
+	end
+
 	-- conflict: second core
 	local core2 = at(1, 1, 0)
 	core.set_node(core2, {name = "vaultnet_core:core"})

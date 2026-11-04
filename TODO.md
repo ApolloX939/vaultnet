@@ -96,6 +96,14 @@
 - [x] Techage Power Adapter
 - [x] Parts show unpowered/inactive state
 
+## Machines (`vaultnet_machines`, optional)
+- [x] Network-fed processing machines in the style of Technic's: Smelter, Grinder, Compressor, Alloy Furnace
+- [x] One job per machine (ghost input slots), inputs from and results to the network, idle/working power draw
+- [x] Recipe registry, Minetest Game basics, Technic grinding/compressing/alloy recipes imported when present
+
+## Batteries (`vaultnet_power`)
+- [x] Small / Medium / Large batteries buffering the network power budget, charge kept when dug
+
 ## Config Settings
 - [x] `require_power` (default false)
 - [x] Wireless relay enable/disable
