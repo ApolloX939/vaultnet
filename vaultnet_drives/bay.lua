@@ -40,7 +40,7 @@ core.register_entity(ENT, {
 		mesh = "vaultnet_drives_disk.obj",
 		-- entity meshes render at 1/10 of the model size, so 10 = one model unit per node
 		visual_size = {x = 10, y = 10, z = 10},
-		textures = {"blank.png", "blank.png"}, -- {disk, led}
+		textures = {"blank.png", "blank.png"},
 		physical = false,
 		pointable = false,
 		collide_with_objects = false,
@@ -49,14 +49,14 @@ core.register_entity(ENT, {
 	},
 })
 
--- {disk texture, LED texture} for a drive stack.
+-- Texture for a drive stack's disk: the tier texture with the state LED painted
+-- onto the texel the LED faces of the mesh point at.
 local function disk_textures(stack)
 	local idef = core.registered_items[stack:get_name()]
 	local def = idef and idef.vaultnet_drive
-	return {
-		def and def.disk_texture or "blank.png",
-		"vaultnet_drives_led" .. drive.state(stack) .. ".png",
-	}
+	local tex = (def and def.disk_texture or "blank.png") ..
+		"^vaultnet_drives_ledpx" .. drive.state(stack) .. ".png"
+	return {tex, tex}
 end
 
 -- Position of slot i (1..BAY_SLOTS) just outside the front face of the bay at pos.
@@ -159,11 +159,11 @@ end
 
 local FULL = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, 0.5, 0.5}}
 
-local function register(name, slot_tile, vn, extra)
+local function register(name, tile, vn, extra)
 	local def = {
 		drawtype = "mesh",
 		mesh = "vaultnet_drives_bay.obj",
-		tiles = {"vaultnet_drives_bay_frame.png", slot_tile},
+		tiles = {tile}, -- one texture: frame, plus the slot interior in its last two rows
 		selection_box = FULL,
 		collision_box = FULL,
 		paramtype = "light",
@@ -221,14 +221,14 @@ local function vn(extra)
 	return t
 end
 
-register(NODE, "vaultnet_drives_bay_slot.png", vn({active_variant = NODE_ACTIVE}), {
+register(NODE, "vaultnet_drives_bay.png", vn({active_variant = NODE_ACTIVE}), {
 	description = "VaultNet Drive Bay",
 })
 
 -- active: the slot interiors pulse blue behind the drives
 register(NODE_ACTIVE, {
-	name = "vaultnet_drives_bay_slot_active.png",
-	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 16, length = 4.0},
+	name = "vaultnet_drives_bay_active.png",
+	animation = {type = "vertical_frames", aspect_w = 16, aspect_h = 18, length = 4.0},
 }, vn({inactive_variant = NODE}), {
 	description = "VaultNet Drive Bay (active)",
 	drop = NODE,

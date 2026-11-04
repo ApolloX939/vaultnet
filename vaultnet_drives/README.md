@@ -20,7 +20,7 @@ Modelled on Refined Storage's disk drive.
   before it can be dug (blasts drop the drives). Role `bay`: provides the slots the network
   stores items in.
 - Each inserted drive shows as a small flat disk sticking out 1/16 of a node (a mesh
-  entity), tinted by tier, with its own LED: green -> red (5 states) by fullness. Refreshed
+  entity), tinted by tier, with its own LED (painted onto a reserved texel of the disk texture, since the engine does not reliably give separate .obj materials separate textures): green -> red (5 states) by fullness. Refreshed
   on insert/remove and whenever the network stores or extracts items. Entities are not
   saved: an LBM restores them on load and an ABM repairs missing ones. If the disks look
   edge-on, set `YAW_OFFSET` in `bay.lua`.
