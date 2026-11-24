@@ -19,6 +19,9 @@ local INTERVAL = tonumber(core.settings:get("vaultnet_io_interval")) or 1.0
 local DEFAULT_AMOUNT = tonumber(core.settings:get("vaultnet_io_default_amount")) or 16
 local AMOUNTS = {1, 2, 4, 8, 16, 32, 64}
 local MAX_COUNT = 9999 -- largest per-item amount (Requester, Exporter)
+-- A device that moved nothing waits longer before trying again: 1, 2, ... up to this many
+-- skipped runs. Any transfer (or a configuration change) resets it. 0 turns it off.
+local MAX_BACKOFF = math.max(0, tonumber(core.settings:get("vaultnet_io_max_backoff")) or 4)
 local FILTER_SLOTS = 8
 local FORMNAME = "vaultnet_io:device"
 
@@ -426,7 +429,7 @@ local function set_info(pos, kind, text)
 	if meta:get_string("infotext") ~= full then meta:set_string("infotext", full) end
 end
 
-local function run(pos, node)
+local function run_once(pos, node)
 	local kind = kind_of[node.name]
 	if not kind then return end
 	local meta = core.get_meta(pos)
@@ -476,6 +479,37 @@ local function run(pos, node)
 		return set_info(pos, kind, "Supplying " .. #supply_slots(pos) .. " stack(s)")
 	end
 	set_info(pos, kind, moved > 0 and "Working" or "Idle")
+	return moved
+end
+
+-- Idle back-off. An Inserter, Exporter or Requester that has nothing to do (network offline
+-- or full, target full or empty, nothing selected, ...) still costs a network lookup and a
+-- scan of all drives on every tick. After a run that moves nothing it now skips the next
+-- 1, 2, ... MAX_BACKOFF runs; a run that moves something starts again at full speed.
+local idle_state = {} -- pos hash -> {n = consecutive idle runs, skip = runs left to skip}
+
+-- Call when a device's settings change so that it does not keep waiting.
+local function wake(pos)
+	idle_state[vaultnet.pos_hash(pos)] = nil
+end
+
+local function run(pos, node)
+	if MAX_BACKOFF == 0 then return run_once(pos, node) end
+	local h = vaultnet.pos_hash(pos)
+	local st = idle_state[h]
+	if st and st.skip > 0 then
+		st.skip = st.skip - 1
+		return
+	end
+	local moved = run_once(pos, node)
+	if moved and moved > 0 then
+		idle_state[h] = nil
+	else
+		st = st or {n = 0, skip = 0}
+		st.n = math.min(st.n + 1, MAX_BACKOFF)
+		st.skip = st.n
+		idle_state[h] = st
+	end
 end
 
 local ALL_NODES = {}
@@ -696,6 +730,7 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		core.record_protection_violation(pos, name)
 		return true
 	end
+	wake(pos)
 	local meta = core.get_meta(pos)
 
 	local sel = get_lists_set(meta)
@@ -791,6 +826,7 @@ local function register(kind, suffix, active)
 		-- filter slots are "ghosts": dropping an item records its name only
 		allow_metadata_inventory_put = function(pos, listname, index, stack, player)
 			if listname == "filter" and not core.is_protected(pos, player:get_player_name()) then
+				wake(pos)
 				local ghost = ItemStack(stack:get_name())
 				local meta = core.get_meta(pos)
 				meta:get_inventory():set_stack("filter", index, ghost)
@@ -801,6 +837,7 @@ local function register(kind, suffix, active)
 		end,
 		allow_metadata_inventory_take = function(pos, listname, index, _, player)
 			if listname == "filter" and not core.is_protected(pos, player:get_player_name()) then
+				wake(pos)
 				local meta = core.get_meta(pos)
 				meta:get_inventory():set_stack("filter", index, ItemStack(""))
 				forget_count(meta, index)

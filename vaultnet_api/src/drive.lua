@@ -42,16 +42,57 @@ end
 -- are full ItemStack strings, which contain exactly those whenever an item has
 -- metadata, so keys are stored base64-encoded (format v = 2). Drives written
 -- before that (no `v`) hold raw keys and are read as-is.
-local function load(stack)
-	local s = stack:get_meta():get_string(KEY)
-	local raw = s ~= "" and core.deserialize(s) or nil
-	if type(raw) ~= "table" or type(raw.items) ~= "table" then
-		return {items = {}, used = 0, types = 0}
+--
+-- Decoding (deserialize + base64 of every key) is the expensive part of every drive
+-- operation, and the same unchanged drives are read by every device on every tick. So
+-- decoded contents are kept in a small cache keyed by the serialized meta string: an
+-- unchanged drive is decoded once, and save() adds the new state. A cached table is
+-- shared, so readers use peek() and must not modify it; load() hands out a private copy.
+local DECODE_CACHE_MAX = 64
+local decode_cache, decode_cache_size = {}, 0
+local EMPTY = {items = {}, used = 0, types = 0}
+
+local function cache_put(s, data)
+	if decode_cache[s] == nil then
+		if decode_cache_size >= DECODE_CACHE_MAX then
+			decode_cache, decode_cache_size = {}, 0
+		end
+		decode_cache_size = decode_cache_size + 1
 	end
-	if raw.v ~= 2 then return raw end
+	decode_cache[s] = data
+end
+
+local function decode(s)
+	local hit = decode_cache[s]
+	if hit then return hit end
+	local raw = core.deserialize(s)
+	local data
+	if type(raw) ~= "table" or type(raw.items) ~= "table" then
+		data = EMPTY
+	elseif raw.v ~= 2 then
+		data = raw
+	else
+		local items = {}
+		for k, n in pairs(raw.items) do items[core.decode_base64(k)] = n end
+		data = {items = items, used = raw.used, types = raw.types}
+	end
+	cache_put(s, data)
+	return data
+end
+
+-- read-only view of the contents (shared with the cache: do not modify)
+local function peek(stack)
+	local s = stack:get_meta():get_string(KEY)
+	if s == "" then return EMPTY end
+	return decode(s)
+end
+
+-- private copy that the caller may modify (then save())
+local function load(stack)
+	local shared = peek(stack)
 	local items = {}
-	for k, n in pairs(raw.items) do items[core.decode_base64(k)] = n end
-	return {items = items, used = raw.used, types = raw.types}
+	for k, n in pairs(shared.items) do items[k] = n end
+	return {items = items, used = shared.used, types = shared.types}
 end
 
 local function save(stack, data)
@@ -59,7 +100,9 @@ local function save(stack, data)
 	local meta = stack:get_meta()
 	local items = {}
 	for k, n in pairs(data.items) do items[core.encode_base64(k)] = n end
-	meta:set_string(KEY, core.serialize({v = 2, items = items, used = data.used, types = data.types}))
+	local serialized = core.serialize({v = 2, items = items, used = data.used, types = data.types})
+	meta:set_string(KEY, serialized)
+	cache_put(serialized, data) -- the caller is done with `data`, so the cache may keep it
 	meta:set_string("description", D.describe(idef, stack:get_name(), data.used, def.capacity))
 	-- Mods that turn items into another currency (EMC) look at this flag: a drive with
 	-- contents is worth more than the empty drive and would be destroyed by a conversion.
@@ -78,7 +121,7 @@ end
 function D.sync_flags(stack)
 	local def = drive_def(stack)
 	if not def then return false end
-	local want = load(stack).used > 0 and "true" or ""
+	local want = peek(stack).used > 0 and "true" or ""
 	local meta = stack:get_meta()
 	if meta:get_string("no_emc") == want then return false end
 	meta:set_string("no_emc", want)
@@ -88,7 +131,7 @@ end
 function D.info(stack)
 	local def = drive_def(stack)
 	if not def then return nil end
-	local data = load(stack)
+	local data = peek(stack)
 	return {
 		used = data.used,
 		capacity = def.capacity,
@@ -108,14 +151,14 @@ end
 function D.contents(stack)
 	local out = {}
 	if drive_def(stack) then
-		for k, v in pairs(load(stack).items) do out[k] = v end
+		for k, v in pairs(peek(stack).items) do out[k] = v end
 	end
 	return out
 end
 
 function D.count(stack, key)
 	if not drive_def(stack) then return 0 end
-	return load(stack).items[key] or 0
+	return peek(stack).items[key] or 0
 end
 
 -- Store as much of `itemstack` as fits. Mutates the drive stack (call

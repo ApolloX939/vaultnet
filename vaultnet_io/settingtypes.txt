@@ -3,3 +3,7 @@ vaultnet_io_interval (Importer/Exporter interval) float 1.0 0.2 10.0
 
 # Items an Importer or Exporter moves per transfer by default (1, 2, 4, 8, 16, 32 or 64; changeable per device).
 vaultnet_io_default_amount (Default items per transfer) int 16 1 64
+
+# How many runs a device that has nothing to do skips at most (it waits 1, 2, ... this many
+# intervals, and starts again at full speed once it moves something). 0 turns it off.
+vaultnet_io_max_backoff (Idle back-off) int 4 0 20
