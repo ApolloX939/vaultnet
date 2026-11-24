@@ -43,7 +43,7 @@ for _, t in ipairs(TIERS) do
 				("vaultnet_power_battery_%s_front%d.png"):format(t.id, level)},
 			inventory_image = ("vaultnet_power_battery_%s_icon.png"):format(t.id),
 			wield_image = ("vaultnet_power_battery_%s_icon.png"):format(t.id),
-			groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = level > 0 and 1 or nil},
+			groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = level > 0 and 1 or nil}),
 			sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 			drop = node_name(t, 0),
 			vaultnet = {

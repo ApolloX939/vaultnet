@@ -85,7 +85,7 @@ local function register_generator(name, active)
 			} or "vaultnet_power_generator_front.png"},
 		inventory_image = "vaultnet_power_generator_icon.png",
 		wield_image = "vaultnet_power_generator_icon.png",
-		groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = active and 1 or nil},
+		groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = active and 1 or nil}),
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 		light_source = active and 8 or nil,
 		drop = GEN,
@@ -137,7 +137,7 @@ core.register_node(SOLAR, {
 	selection_box = {type = "fixed", fixed = {-0.5, -0.5, -0.5, 0.5, -0.25, 0.5}},
 	paramtype = "light",
 	tiles = {"vaultnet_power_solar_top.png", "vaultnet_power_side.png", "vaultnet_power_side.png"},
-	groups = {cracky = 2, vaultnet_device = 1},
+	groups = vaultnet.groups({vaultnet_device = 1}),
 	sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 	vaultnet = {
 		role = "power",

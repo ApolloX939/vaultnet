@@ -175,7 +175,7 @@ local function register(name, desc, tile, extra)
 		wield_image = "vaultnet_core_icon.png",
 		paramtype = "light",
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
-		groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1},
+		groups = vaultnet.groups({vaultnet_device = 1, vaultnet_core = 1}),
 		vaultnet = {
 			role = "core",
 			consumes_power = true,
@@ -216,14 +216,14 @@ register(ACTIVE, "VaultNet Core (active)",
 	animated("vaultnet_core_housing_active.png", 1.6), {
 	drop = IDLE,
 	light_source = 8,
-	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1}),
 })
 
 register(CONFLICT, "VaultNet Core (conflict)",
 	animated("vaultnet_core_housing_conflict.png", 0.8), {
 	drop = IDLE,
 	light_source = 8,
-	groups = {cracky = 2, vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1, vaultnet_core = 1, not_in_creative_inventory = 1}),
 })
 
 core.register_lbm({

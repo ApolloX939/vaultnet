@@ -208,7 +208,7 @@ local function register(name, desc, front, vn, extra)
 		description = desc,
 		paramtype2 = "4dir",
 		tiles = {side, side, side, side, side, front},
-		groups = {cracky = 2, vaultnet_device = 1},
+		groups = vaultnet.groups({vaultnet_device = 1}),
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 		vaultnet = vn,
 
@@ -284,5 +284,5 @@ register(ACTIVE, "VaultNet Terminal (active)", {
 }, {
 	drop = IDLE,
 	light_source = 4,
-	groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = 1}),
 })

@@ -37,7 +37,7 @@ local function register(name, active)
 			} or (pre .. "_front.png")},
 		inventory_image = pre .. "_icon.png",
 		wield_image = pre .. "_icon.png",
-		groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = active and 1 or nil},
+		groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = active and 1 or nil}),
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 		light_source = active and 4 or nil,
 		drop = IDLE,

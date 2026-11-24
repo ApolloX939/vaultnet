@@ -35,7 +35,7 @@ local function register(name, texture, is_animated, vn, extra)
 		tiles = {is_animated and animated(texture) or texture},
 		use_texture_alpha = "clip",
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
-		groups = {cracky = 2, oddly_breakable_by_hand = 1, vaultnet_device = 1},
+		groups = vaultnet.groups({vaultnet_device = 1}),
 		vaultnet = vn,
 	}
 	for k, v in pairs(extra or {}) do def[k] = v end
@@ -58,8 +58,8 @@ register("vaultnet_cables:cable_active", "vaultnet_cables_cable_active.png", tru
 	description = "VaultNet Cable (active)",
 	drop = "vaultnet_cables:cable",
 	light_source = 3,
-	groups = {cracky = 2, oddly_breakable_by_hand = 1, vaultnet_device = 1,
-		not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1,
+		not_in_creative_inventory = 1}),
 })
 
 -- Toggle cable (only with require_power) --------------------------------------

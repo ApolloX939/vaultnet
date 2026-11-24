@@ -802,7 +802,7 @@ local function register(kind, suffix, active)
 		tiles = {texture},
 		paramtype = "light",
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
-		groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = 1},
+		groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = 1}),
 		drop = item,
 		vaultnet = {
 			role = kind,

@@ -6,6 +6,7 @@ vaultnet = {
 
 local src = vaultnet.modpath .. "/src/"
 dofile(src .. "util.lua")
+dofile(src .. "materials.lua")
 dofile(src .. "registry.lua")
 dofile(src .. "power.lua")
 dofile(src .. "access.lua")

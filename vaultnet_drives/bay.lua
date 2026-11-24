@@ -189,7 +189,7 @@ local function register(name, tile, vn, extra)
 		collision_box = FULL,
 		paramtype = "light",
 		paramtype2 = "4dir",
-		groups = {cracky = 2, vaultnet_device = 1, vaultnet_bay = 1},
+		groups = vaultnet.groups({vaultnet_device = 1, vaultnet_bay = 1}),
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
 		vaultnet = vn,
 
@@ -255,7 +255,7 @@ register(NODE_ACTIVE, {
 	description = "VaultNet Drive Bay (active)",
 	drop = NODE,
 	light_source = 2,
-	groups = {cracky = 2, vaultnet_device = 1, vaultnet_bay = 1, not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1, vaultnet_bay = 1, not_in_creative_inventory = 1}),
 })
 
 -- Entities are not saved: bring them back when the area loads, and repair

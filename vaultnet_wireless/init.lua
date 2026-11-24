@@ -211,7 +211,7 @@ local function register(name, desc, tile, vn, extra)
 		wield_image = "vaultnet_wireless_icon.png",
 		paramtype = "light",
 		sounds = core.global_exists("default") and default.node_sound_metal_defaults() or nil,
-		groups = {cracky = 2, vaultnet_device = 1},
+		groups = vaultnet.groups({vaultnet_device = 1}),
 		vaultnet = vn,
 
 		after_place_node = function(pos, placer)
@@ -244,7 +244,7 @@ register(ACTIVE, "VaultNet Wireless Relay (active)", {
 }, {
 	drop = IDLE,
 	light_source = 4,
-	groups = {cracky = 2, vaultnet_device = 1, not_in_creative_inventory = 1},
+	groups = vaultnet.groups({vaultnet_device = 1, not_in_creative_inventory = 1}),
 })
 
 core.register_lbm({
